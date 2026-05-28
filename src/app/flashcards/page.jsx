@@ -50,15 +50,15 @@ function FlipCard({ front, back }) {
             position: "absolute",
             inset: 0,
           }}
-          className="bg-white border-2 border-gray-200 rounded-2xl flex flex-col items-center justify-center p-8 shadow-sm"
+          className="bg-[#1e293b] border-2 border-gray-700 rounded-2xl flex flex-col items-center justify-center p-8 shadow-sm"
         >
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">
             Question
           </div>
-          <div className="text-xl font-semibold text-gray-900 text-center leading-relaxed">
+          <div className="text-xl font-semibold text-gray-100 text-center leading-relaxed">
             {front}
           </div>
-          <div className="mt-6 text-xs text-gray-400">
+          <div className="mt-6 text-xs text-gray-500">
             Click to reveal answer
           </div>
         </div>
@@ -70,12 +70,12 @@ function FlipCard({ front, back }) {
             inset: 0,
             transform: "rotateY(180deg)",
           }}
-          className="bg-blue-50 border-2 border-blue-200 rounded-2xl flex flex-col p-8 shadow-sm overflow-y-auto"
+          className="bg-blue-900/20 border-2 border-blue-800/40 rounded-2xl flex flex-col p-8 shadow-sm overflow-y-auto"
         >
-          <div className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-4">
+          <div className="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-4">
             Answer
           </div>
-          <div className="text-sm font-medium text-gray-800 leading-relaxed whitespace-pre-wrap">
+          <div className="text-sm font-medium text-gray-200 leading-relaxed whitespace-pre-wrap">
             {back}
           </div>
         </div>
@@ -89,25 +89,25 @@ const RATING_OPTIONS = [
     value: 1,
     label: "Again",
     icon: ThumbsDown,
-    color: "text-red-600 bg-red-50 border-red-200 hover:bg-red-100",
+    color: "text-red-400 bg-red-900/30 border-red-800/40 hover:bg-red-900/50",
   },
   {
     value: 3,
     label: "Hard",
     icon: AlertCircle,
-    color: "text-orange-600 bg-orange-50 border-orange-200 hover:bg-orange-100",
+    color: "text-orange-400 bg-orange-900/30 border-orange-800/40 hover:bg-orange-900/50",
   },
   {
     value: 4,
     label: "Good",
     icon: CheckCircle2,
-    color: "text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100",
+    color: "text-blue-400 bg-blue-900/30 border-blue-800/40 hover:bg-blue-900/50",
   },
   {
     value: 5,
     label: "Easy",
     icon: Star,
-    color: "text-green-600 bg-green-50 border-green-200 hover:bg-green-100",
+    color: "text-green-400 bg-green-900/30 border-green-800/40 hover:bg-green-900/50",
   },
 ];
 
@@ -239,33 +239,33 @@ export default function FlashcardsPage() {
         {phase === "setup" && (
           <>
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Layers className="w-8 h-8 text-indigo-600" />
+              <div className="w-16 h-16 bg-indigo-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Layers className="w-8 h-8 text-indigo-400" />
               </div>
-              <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-2">
+              <h1 className="text-3xl font-semibold text-gray-100 tracking-tight mb-2">
                 Flashcards
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-400">
                 Spaced repetition learning with SM-2 algorithm
               </p>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
+            <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 space-y-5">
               {error && (
-                <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <div className="flex items-center gap-2 px-4 py-3 bg-red-900/30 border border-red-800/40 rounded-lg text-sm text-red-300">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   {error}
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Select Topic
                 </label>
                 <select
                   value={topicId}
                   onChange={(e) => setTopicId(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2.5 border border-gray-700 bg-gray-800 text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <optgroup label="Digital Design Track">
                     {TOPICS.filter((t) => t.track === "design").map((t) => (
@@ -287,7 +287,7 @@ export default function FlashcardsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Cards to Generate:{" "}
                   <span className="text-indigo-600 font-semibold">
                     {cardCount}
@@ -307,7 +307,7 @@ export default function FlashcardsPage() {
                 <button
                   onClick={handleLoadExisting}
                   disabled={loading}
-                  className="flex-1 py-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                  className="flex-1 py-3 text-sm font-medium text-gray-300 border border-gray-700 rounded-xl hover:bg-gray-700/30 disabled:opacity-60 transition-colors"
                 >
                   Load Existing
                 </button>
@@ -336,14 +336,14 @@ export default function FlashcardsPage() {
             {/* Progress */}
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-gray-100">
                   {topic?.title || "Flashcards"}
                 </span>
-                <span className="text-gray-500">
+                <span className="text-gray-400">
                   {currentIdx + 1} / {cards.length}
                 </span>
               </div>
-              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-gray-700/50 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-indigo-500 rounded-full transition-all duration-300"
                   style={{
@@ -360,7 +360,7 @@ export default function FlashcardsPage() {
 
             {/* Rating Buttons */}
             <div className="mt-6">
-              <div className="text-center text-xs font-medium text-gray-500 mb-3">
+              <div className="text-center text-xs font-medium text-gray-400 mb-3">
                 How well did you know this?
               </div>
               <div className="grid grid-cols-4 gap-2">
@@ -386,13 +386,13 @@ export default function FlashcardsPage() {
               <button
                 onClick={() => setCurrentIdx(Math.max(0, currentIdx - 1))}
                 disabled={currentIdx === 0}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200 disabled:opacity-30"
               >
                 <ChevronLeft className="w-4 h-4" /> Previous
               </button>
               <button
                 onClick={() => setPhase("setup")}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200"
               >
                 <X className="w-4 h-4" /> Exit
               </button>
@@ -402,35 +402,35 @@ export default function FlashcardsPage() {
 
         {phase === "complete" && (
           <div className="text-center">
-            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-10 h-10 text-green-600" />
+            <div className="w-20 h-20 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10 text-green-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-gray-100 mb-2">
               Session Complete!
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-400 mb-6">
               You reviewed{" "}
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-gray-100">
                 {cards.length}
               </span>{" "}
               cards.
               <br />
-              <span className="text-green-600 font-semibold">{goodCount}</span>{" "}
+              <span className="text-green-400 font-semibold">{goodCount}</span>{" "}
               marked as good or easy.
             </p>
 
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6 text-left">
-              <div className="text-sm font-semibold text-gray-700 mb-3">
+            <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-5 mb-6 text-left">
+              <div className="text-sm font-semibold text-gray-300 mb-3">
                 Rating Summary
               </div>
               {RATING_OPTIONS.map((opt) => {
                 const count = ratings.filter((r) => r === opt.value).length;
                 return (
                   <div key={opt.value} className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-medium text-gray-600 w-12">
+                    <span className="text-xs font-medium text-gray-400 w-12">
                       {opt.label}
                     </span>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="flex-1 h-2 bg-gray-700/50 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-indigo-400 rounded-full"
                         style={{
@@ -438,7 +438,7 @@ export default function FlashcardsPage() {
                         }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500 w-6 text-right">
+                    <span className="text-xs text-gray-400 w-6 text-right">
                       {count}
                     </span>
                   </div>
@@ -449,7 +449,7 @@ export default function FlashcardsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setPhase("setup")}
-                className="flex-1 py-3 text-sm font-medium text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50"
+                className="flex-1 py-3 text-sm font-medium text-gray-300 border border-gray-700 rounded-xl hover:bg-gray-700/30"
               >
                 <RotateCcw className="w-4 h-4 inline mr-2" />
                 New Session

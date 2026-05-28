@@ -83,7 +83,7 @@ function ActivityHeatmap({ data }) {
   const CELL = 13;
   const GAP = 3;
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const levelColors = ["#EBEDF0", "#BBF7D0", "#4ADE80", "#16A34A", "#14532D"];
+  const levelColors = ["#1e293b", "#064e3b", "#047857", "#059669", "#10b981"];
   const [tooltip, setTooltip] = useState(null);
 
   return (
@@ -226,7 +226,7 @@ function ActivityHeatmap({ data }) {
 
 function StatCard({ icon: Icon, label, value, subtitle, color, bgColor }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-[#1e293b] rounded-xl border border-gray-700 p-5">
       <div className="flex items-start gap-3">
         <div
           className={`w-11 h-11 ${bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}
@@ -234,14 +234,14 @@ function StatCard({ icon: Icon, label, value, subtitle, color, bgColor }) {
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
         <div>
-          <div className="text-2xl font-bold text-gray-900 tracking-tight">
+          <div className="text-2xl font-bold text-gray-100 tracking-tight">
             {value}
           </div>
-          <div className="text-xs font-medium text-gray-500 mt-0.5">
+          <div className="text-xs font-medium text-gray-400 mt-0.5">
             {label}
           </div>
           {subtitle && (
-            <div className="text-xs text-gray-400 mt-1">{subtitle}</div>
+            <div className="text-xs text-gray-500 mt-1">{subtitle}</div>
           )}
         </div>
       </div>
@@ -252,8 +252,8 @@ function StatCard({ icon: Icon, label, value, subtitle, color, bgColor }) {
 function BarChart({ data, label, color }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="text-base font-semibold text-gray-900 mb-4">{label}</h3>
+    <div className="bg-[#1e293b] border border-gray-700 rounded-xl p-6">
+      <h3 className="text-base font-semibold text-gray-100 mb-4">{label}</h3>
       <div className="flex items-end gap-2 h-32">
         {data.map((d, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -360,10 +360,10 @@ export default function AnalyticsPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+          <h1 className="text-3xl font-semibold text-gray-100 tracking-tight mb-1">
             Analytics
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             Track your learning consistency and progress over time
           </p>
         </div>
@@ -374,53 +374,53 @@ export default function AnalyticsPage() {
             icon={Flame}
             label="Current Streak"
             value={`${summary?.currentStreak || 0}d`}
-            color="text-orange-600"
-            bgColor="bg-orange-50"
+            color="text-orange-400"
+            bgColor="bg-orange-900/30"
           />
           <StatCard
             icon={Clock}
             label="Total Hours"
             value={`${totalStudyHours}h`}
-            color="text-blue-600"
-            bgColor="bg-blue-50"
+            color="text-blue-400"
+            bgColor="bg-blue-900/30"
           />
           <StatCard
             icon={Target}
             label="Sessions"
             value={summary?.totalSessions || 0}
-            color="text-green-600"
-            bgColor="bg-green-50"
+            color="text-green-400"
+            bgColor="bg-green-900/30"
           />
           <StatCard
             icon={Brain}
             label="Quizzes"
             value={summary?.totalQuizzes || 0}
-            color="text-purple-600"
-            bgColor="bg-purple-50"
+            color="text-purple-400"
+            bgColor="bg-purple-900/30"
           />
           <StatCard
             icon={Layers}
             label="Flashcards"
             value={summary?.totalFlashcards || 0}
-            color="text-indigo-600"
-            bgColor="bg-indigo-50"
+            color="text-indigo-400"
+            bgColor="bg-indigo-900/30"
           />
           <StatCard
             icon={Code2}
             label="Problems"
             value={summary?.totalCoding || 0}
-            color="text-pink-600"
-            bgColor="bg-pink-50"
+            color="text-pink-400"
+            bgColor="bg-pink-900/30"
           />
         </div>
 
         {/* Heatmap */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <div className="bg-[#1e293b] border border-gray-700 rounded-xl p-6 mb-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-base font-semibold text-gray-100">
               Study Activity (Last 6 Months)
             </h2>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-400">
               Avg {avgDailyMinutes} min/day
             </span>
           </div>
@@ -442,32 +442,32 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Topic Progress Table */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="bg-[#1e293b] border border-gray-700 rounded-xl p-6">
+          <h2 className="text-base font-semibold text-gray-100 mb-4">
             Topic Progress
           </h2>
           {progress.length === 0 ? (
-            <div className="text-center py-8 text-sm text-gray-500">
+            <div className="text-center py-8 text-sm text-gray-400">
               No topic progress yet. Start studying to see your progress here.
             </div>
           ) : (
             <div className="space-y-3">
               {progress.slice(0, 10).map((p) => (
                 <div key={p.topic_id} className="flex items-center gap-4">
-                  <div className="text-sm text-gray-700 w-48 truncate">
+                  <div className="text-sm text-gray-300 w-48 truncate">
                     {p.topic_id}
                   </div>
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-gray-700/50 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full"
                       style={{ width: `${p.progress || 0}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500 w-10 text-right">
+                  <div className="text-xs text-gray-400 w-10 text-right">
                     {p.progress || 0}%
                   </div>
                   {p.completed && (
-                    <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-medium text-green-300 bg-green-900/30 px-2 py-0.5 rounded-full">
                       Done
                     </span>
                   )}

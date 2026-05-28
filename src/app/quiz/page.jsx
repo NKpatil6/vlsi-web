@@ -22,17 +22,17 @@ const DIFFICULTY_OPTIONS = [
   {
     value: "beginner",
     label: "Beginner",
-    color: "text-green-700 bg-green-50 border-green-200",
+    color: "text-green-300 bg-green-900/30 border-green-800/40",
   },
   {
     value: "intermediate",
     label: "Intermediate",
-    color: "text-yellow-700 bg-yellow-50 border-yellow-200",
+    color: "text-yellow-300 bg-yellow-900/30 border-yellow-800/40",
   },
   {
     value: "advanced",
     label: "Advanced",
-    color: "text-red-700 bg-red-50 border-red-200",
+    color: "text-red-300 bg-red-900/30 border-red-800/40",
   },
 ];
 
@@ -74,33 +74,33 @@ function QuizSetup({ onStart }) {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-8 text-center">
-        <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Brain className="w-8 h-8 text-purple-600" />
+        <div className="w-16 h-16 bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Brain className="w-8 h-8 text-purple-400" />
         </div>
-        <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-2">
+        <h1 className="text-3xl font-semibold text-gray-100 tracking-tight mb-2">
           AI Quiz
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Test your knowledge with AI-generated questions
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
+      <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 space-y-5">
         {error && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div className="flex items-center gap-2 px-4 py-3 bg-red-900/30 border border-red-800/40 rounded-lg text-sm text-red-300">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {error}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Select Topic
           </label>
           <select
             value={topicId}
             onChange={(e) => setTopicId(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2.5 border border-gray-700 bg-gray-800 text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <optgroup label="Digital Design Track">
               {TOPICS.filter((t) => t.track === "design").map((t) => (
@@ -120,7 +120,7 @@ function QuizSetup({ onStart }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Difficulty
           </label>
           <div className="flex gap-3">
@@ -131,7 +131,7 @@ function QuizSetup({ onStart }) {
                 className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-all ${
                   difficulty === opt.value
                     ? opt.color + " ring-2 ring-offset-1 ring-current"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    : "border-gray-700 text-gray-400 hover:bg-gray-700/30"
                 }`}
               >
                 {opt.label}
@@ -141,7 +141,7 @@ function QuizSetup({ onStart }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
             Number of Questions:{" "}
             <span className="text-purple-600 font-semibold">{count}</span>
           </label>
@@ -153,7 +153,7 @@ function QuizSetup({ onStart }) {
             onChange={(e) => setCount(parseInt(e.target.value))}
             className="w-full accent-purple-600"
           />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>3</span>
             <span>10</span>
           </div>
@@ -192,30 +192,30 @@ function QuizQuestion({ question, index, total, onAnswer, userAnswer }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <span className="text-sm font-medium text-gray-500">
+        <span className="text-sm font-medium text-gray-400">
           Question {index + 1} of {total}
         </span>
-        <span className="text-xs font-medium px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-200">
+        <span className="text-xs font-medium px-2.5 py-1 bg-purple-900/30 text-purple-300 rounded-full border border-purple-800/40">
           {question.difficulty}
         </span>
       </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-6 leading-relaxed">
+      <h2 className="text-lg font-semibold text-gray-100 mb-6 leading-relaxed">
         {question.question}
       </h2>
 
       <div className="space-y-3">
         {(question.options || []).map((option, i) => {
           let style =
-            "border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50";
+            "border-gray-700 text-gray-300 hover:border-purple-600 hover:bg-purple-900/20";
           if (userAnswer !== null && userAnswer !== undefined) {
             if (i === question.correctAnswer)
-              style = "border-green-400 bg-green-50 text-green-800";
+              style = "border-green-400 bg-green-900/30 text-green-200";
             else if (i === userAnswer && i !== question.correctAnswer)
-              style = "border-red-400 bg-red-50 text-red-800";
-            else style = "border-gray-100 text-gray-400 opacity-60";
+              style = "border-red-400 bg-red-900/30 text-red-200";
+            else style = "border-gray-700/50 text-gray-500 opacity-60";
           } else if (userAnswer === i) {
-            style = "border-purple-400 bg-purple-50 text-purple-800";
+            style = "border-purple-400 bg-purple-900/30 text-purple-200";
           }
 
           return (
@@ -242,15 +242,15 @@ function QuizQuestion({ question, index, total, onAnswer, userAnswer }) {
 
       {userAnswer !== null && userAnswer !== undefined && (
         <div
-          className={`mt-5 p-4 rounded-xl border ${userAnswer === question.correctAnswer ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}
+          className={`mt-5 p-4 rounded-xl border ${userAnswer === question.correctAnswer ? "bg-green-900/20 border-green-800/40" : "bg-amber-900/20 border-amber-800/40"}`}
         >
           <div className="flex items-start gap-2">
             {userAnswer === question.correctAnswer ? (
-              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
             )}
-            <div className="text-sm text-gray-700">
+            <div className="text-sm text-gray-300">
               <span className="font-semibold">
                 {userAnswer === question.correctAnswer
                   ? "Correct! "
@@ -304,33 +304,33 @@ function QuizResults({
 
   const grade =
     score >= 90
-      ? { label: "Excellent!", color: "text-green-600", bg: "bg-green-50" }
+      ? { label: "Excellent!", color: "text-green-400", bg: "bg-green-900/30" }
       : score >= 75
-        ? { label: "Good Job!", color: "text-blue-600", bg: "bg-blue-50" }
+        ? { label: "Good Job!", color: "text-blue-400", bg: "bg-blue-900/30" }
         : score >= 60
           ? {
               label: "Keep Going!",
-              color: "text-yellow-600",
-              bg: "bg-yellow-50",
+              color: "text-yellow-400",
+              bg: "bg-yellow-900/30",
             }
-          : { label: "Keep Studying", color: "text-red-600", bg: "bg-red-50" };
+          : { label: "Keep Studying", color: "text-red-400", bg: "bg-red-900/30" };
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className={`rounded-2xl ${grade.bg} border p-8 text-center mb-6`}>
         <div className={`text-5xl font-bold ${grade.color} mb-2`}>{score}%</div>
-        <div className="text-xl font-semibold text-gray-900 mb-1">
+        <div className="text-xl font-semibold text-gray-100 mb-1">
           {grade.label}
         </div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-400">
           {correctCount}/{questions.length} correct ·{" "}
           {Math.round(timeSeconds / 60)}m {timeSeconds % 60}s
         </div>
       </div>
 
       {/* Per-question review */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <h3 className="text-base font-semibold text-gray-900 mb-4">
+      <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6 mb-6">
+        <h3 className="text-base font-semibold text-gray-100 mb-4">
           Question Review
         </h3>
         <div className="space-y-3">
@@ -339,22 +339,22 @@ function QuizResults({
             return (
               <div key={i} className="flex items-start gap-3">
                 {correct ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                 ) : (
-                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-gray-100">
                     {q.question}
                   </div>
                   {!correct && (
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-gray-400 mt-0.5">
                       Your answer:{" "}
-                      <span className="text-red-600">
+                      <span className="text-red-400">
                         {q.options[answers[i]] || "—"}
                       </span>{" "}
                       · Correct:{" "}
-                      <span className="text-green-600">
+                      <span className="text-green-400">
                         {q.options[q.correctAnswer]}
                       </span>
                     </div>
@@ -369,7 +369,7 @@ function QuizResults({
       <div className="flex gap-3">
         <button
           onClick={onRetry}
-          className="flex-1 flex items-center justify-center gap-2 py-3 border border-gray-200 text-sm font-medium text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-3 border border-gray-700 text-sm font-medium text-gray-300 rounded-xl hover:bg-gray-700/30 transition-colors"
         >
           <RotateCcw className="w-4 h-4" />
           Retry Same Topic
@@ -460,8 +460,8 @@ export default function QuizPage() {
         <div className="p-6 max-w-2xl mx-auto">
           {/* Progress bar */}
           <div className="mb-6">
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-              <span className="font-medium text-gray-900">
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+              <span className="font-medium text-gray-100">
                 {quizData.topic.title}
               </span>
               <span className="flex items-center gap-1">
@@ -470,7 +470,7 @@ export default function QuizPage() {
                 {String(elapsed % 60).padStart(2, "0")}
               </span>
             </div>
-            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-gray-700/50 rounded-full overflow-hidden">
               <div
                 className="h-full bg-purple-500 rounded-full transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
@@ -478,7 +478,7 @@ export default function QuizPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
+          <div className="bg-[#1e293b] border border-gray-700 rounded-2xl p-6">
             <QuizQuestion
               question={quizData.questions[currentQ]}
               index={currentQ}
@@ -487,11 +487,11 @@ export default function QuizPage() {
               userAnswer={answers[currentQ]}
             />
 
-            <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
+            <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-700/50">
               <button
                 onClick={handlePrev}
                 disabled={currentQ === 0}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-400 border border-gray-700 rounded-lg hover:bg-gray-700/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
