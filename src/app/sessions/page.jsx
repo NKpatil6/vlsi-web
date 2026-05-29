@@ -5,6 +5,7 @@ import AppLayout from "@/components/AppLayout";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useProgressStore } from "@/stores/progressStore";
 import { useAnalyticsStore } from "@/stores/analyticsStore";
+import { useActiveSessionStore } from "@/stores/activeSessionStore";
 import { TOPICS, getTopicById } from "@/data/syllabusData";
 import {
   detectMissedSessions,
@@ -13,6 +14,10 @@ import {
   buildCompletionEvalPrompt,
 } from "@/services/sessionEngine";
 import { requestAI } from "@/ai/requestAI";
+import {
+  getBacklog, addToBacklog, updateBacklogItem, deleteBacklogItem,
+  getQuizAttempts, getCodingSolutions, getAnalyticsSummary,
+} from "@/lib/storage";
 import {
   Plus,
   Calendar,
@@ -36,33 +41,33 @@ import {
 
 const STATUS_STYLES = {
   pending: {
-    bg: "bg-yellow-50",
-    border: "border-yellow-200",
-    text: "text-yellow-700",
+    bg: "bg-yellow-500/10",
+    border: "border-yellow-500/20",
+    text: "text-yellow-400",
     dot: "bg-yellow-400",
   },
   "in-progress": {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    text: "text-blue-700",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/20",
+    text: "text-blue-400",
     dot: "bg-blue-500",
   },
   completed: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    text: "text-green-700",
+    bg: "bg-green-500/10",
+    border: "border-green-500/20",
+    text: "text-green-400",
     dot: "bg-green-500",
   },
   missed: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    text: "text-red-700",
+    bg: "bg-red-500/10",
+    border: "border-red-500/20",
+    text: "text-red-400",
     dot: "bg-red-400",
   },
   backlog: {
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    text: "text-purple-700",
+    bg: "bg-purple-500/10",
+    border: "border-purple-500/20",
+    text: "text-purple-400",
     dot: "bg-purple-400",
   },
 };
@@ -98,7 +103,9 @@ function SessionModal({
     topicId: session?.topic_id || "",
     scheduledDate: session?.scheduled_date || today,
     scheduledTime: session?.scheduled_time || "09:00",
+    durationMinutes: session?.duration_minutes || 30,
     recurrence: session?.recurrence || "one-time",
+    weekdays: session?.weekdays || [new Date().getDay()],
     notes: session?.notes || "",
   });
   const [saving, setSaving] = useState(false);
@@ -168,15 +175,15 @@ function SessionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2235] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 sticky top-0 bg-[#1a2235]">
+          <h2 className="text-lg font-semibold text-slate-100">
             {session ? "Edit Session" : "New Session"}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+            className="p-2 text-slate-500 hover:text-slate-300 rounded-lg"
           >
             <X className="w-5 h-5" />
           </button>
@@ -184,7 +191,7 @@ function SessionModal({
 
         <div className="p-6 space-y-4">
           {error && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -192,7 +199,7 @@ function SessionModal({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
               Session Title
             </label>
             <input
@@ -200,20 +207,20 @@ function SessionModal({
               value={form.title}
               onChange={(e) => handleChange("title", e.target.value)}
               placeholder="e.g., Study Boolean Algebra"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Type + Recurrence */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
                 Type
               </label>
               <select
                 value={form.type}
                 onChange={(e) => handleChange("type", e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(TYPE_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>
@@ -223,13 +230,13 @@ function SessionModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
                 Recurrence
               </label>
               <select
                 value={form.recurrence}
                 onChange={(e) => handleChange("recurrence", e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>
@@ -242,19 +249,19 @@ function SessionModal({
 
           {/* Auto-topic banner for daily learning */}
           {isDailyAuto && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
               <div className="flex items-start gap-2 mb-1">
-                <Brain className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-xs font-semibold text-blue-700 mb-0.5">
+                  <div className="text-xs font-semibold text-blue-400 mb-0.5">
                     AI-Assigned Topic
                   </div>
                   {autoTopic?.topic ? (
                     <>
-                      <div className="text-sm font-semibold text-blue-900">
+                      <div className="text-sm font-semibold text-blue-300">
                         {autoTopic.topic.title}
                       </div>
-                      <div className="text-xs text-blue-600 mt-0.5">
+                      <div className="text-xs text-blue-400 mt-0.5">
                         Topic {autoTopic.topic.order} •{" "}
                         {autoTopic.topic.estimatedHours}h •{" "}
                         {autoTopic.topic.difficulty}
@@ -265,7 +272,7 @@ function SessionModal({
                       </div>
                     </>
                   ) : (
-                    <div className="text-sm text-blue-700">
+                    <div className="text-sm text-blue-400">
                       🎉 All topics scheduled! Session will focus on revision.
                     </div>
                   )}
@@ -277,13 +284,13 @@ function SessionModal({
           {/* Topic selector (shown when not daily auto-learning) */}
           {!isDailyAuto && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
                 Topic
               </label>
               <select
                 value={form.topicId}
                 onChange={(e) => handleChange("topicId", e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select a topic...</option>
                 <optgroup label="📐 Digital Design Track">
@@ -306,19 +313,28 @@ function SessionModal({
 
           {/* Date + Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Schedule Date & Time
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              {form.recurrence === "daily" ? "Start Time (auto-scheduled daily)" : "Schedule Date & Time"}
             </label>
-            <div className="flex gap-2">
+            {form.recurrence !== "daily" && (
+            <div className="flex gap-2 mb-2">
               <input
                 type="date"
                 value={form.scheduledDate}
                 onChange={(e) => handleChange("scheduledDate", e.target.value)}
-                className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+            )}
+            {form.recurrence === "daily" && (
+              <div className="text-xs text-cyan-400 mb-2 px-1">
+                Daily sessions auto-schedule starting today and progress through the syllabus each day.
+              </div>
+            )}
+            <div className="flex gap-2">
               {/* Time picker */}
-              <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-2 bg-white">
-                <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-1 border border-slate-700 rounded-lg px-2 bg-[#1a2235]">
+                <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
                 <select
                   value={hourVal}
                   onChange={(e) => handleTimeChange(e.target.value, minVal)}
@@ -330,7 +346,7 @@ function SessionModal({
                     </option>
                   ))}
                 </select>
-                <span className="text-gray-400 font-bold">:</span>
+                <span className="text-slate-500 font-bold">:</span>
                 <select
                   value={minVal}
                   onChange={(e) => handleTimeChange(hourVal, e.target.value)}
@@ -344,7 +360,7 @@ function SessionModal({
                 </select>
               </div>
             </div>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xs text-slate-500 mt-1">
               Scheduled for:{" "}
               {new Date(
                 form.scheduledDate + "T" + hourVal + ":" + minVal,
@@ -357,9 +373,57 @@ function SessionModal({
             </div>
           </div>
 
+          {/* Duration */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Duration (minutes)
+            </label>
+            <input
+              type="number"
+              min={5}
+              max={480}
+              value={form.durationMinutes}
+              onChange={(e) => handleChange("durationMinutes", parseInt(e.target.value) || 30)}
+              className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            />
+          </div>
+
+          {/* Weekly weekday picker */}
+          {form.recurrence === "weekly" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Repeat on
+              </label>
+              <div className="flex gap-1.5">
+                {["S", "M", "T", "W", "T", "F", "S"].map((label, i) => {
+                  const selected = form.weekdays.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        const wd = selected
+                          ? form.weekdays.filter((d) => d !== i)
+                          : [...form.weekdays, i].sort();
+                        handleChange("weekdays", wd.length > 0 ? wd : [i]);
+                      }}
+                      className={`w-9 h-9 rounded-lg text-xs font-semibold transition-colors ${
+                        selected
+                          ? "bg-cyan-600 text-white"
+                          : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Daily recurrence info */}
           {form.recurrence === "daily" && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3 text-xs text-amber-300">
               <span className="font-semibold">Daily recurrence:</span> Each
               day's topic auto-advances through the syllabus. Missed sessions
               are automatically moved to the backlog.
@@ -368,7 +432,7 @@ function SessionModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
               Notes (optional)
             </label>
             <textarea
@@ -376,15 +440,15 @@ function SessionModal({
               onChange={(e) => handleChange("notes", e.target.value)}
               placeholder="Focus areas, goals..."
               rows={2}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2.5 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-sm font-medium text-slate-300 bg-[#1a2235] border border-slate-700 rounded-lg hover:bg-slate-700/50"
           >
             Cancel
           </button>
@@ -424,21 +488,21 @@ function ConfirmModal({
   onCancel,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2235] rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <div
-          className={`w-11 h-11 rounded-full flex items-center justify-center mb-4 ${danger ? "bg-red-100" : "bg-blue-100"}`}
+          className={`w-11 h-11 rounded-full flex items-center justify-center mb-4 ${danger ? "bg-red-500/10" : "bg-blue-500/10"}`}
         >
           <AlertCircle
-            className={`w-5 h-5 ${danger ? "text-red-600" : "text-blue-600"}`}
+            className={`w-5 h-5 ${danger ? "text-red-400" : "text-blue-400"}`}
           />
         </div>
-        <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
-        <p className="text-sm text-gray-600 mb-5">{message}</p>
+        <h3 className="text-base font-semibold text-slate-100 mb-1">{title}</h3>
+        <p className="text-sm text-slate-400 mb-5">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="flex-1 py-2 text-sm font-medium text-slate-300 bg-[#1a2235] border border-slate-700 rounded-lg hover:bg-slate-700/50"
           >
             Cancel
           </button>
@@ -464,20 +528,20 @@ function BacklogCard({ item, onReschedule, onResolve, onDismiss }) {
   );
 
   return (
-    <div className="bg-white border border-purple-200 rounded-xl p-4 hover:border-purple-300 transition-colors">
+    <div className="bg-[#1a2235] border border-purple-500/20 rounded-xl p-4 hover:border-purple-500/50 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Archive className="w-4 h-4 text-purple-500 flex-shrink-0" />
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="text-sm font-semibold text-slate-100">
               {item.title}
             </span>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
-            <span className="bg-gray-100 px-2 py-0.5 rounded-full">
+          <div className="flex flex-wrap gap-2 text-xs text-slate-400 mb-2">
+            <span className="bg-slate-700/50 px-2 py-0.5 rounded-full">
               {TYPE_LABELS[item.type] || item.type}
             </span>
-            {topic && <span className="text-purple-700">{topic.title}</span>}
+            {topic && <span className="text-purple-400">{topic.title}</span>}
             <span>
               Originally:{" "}
               {new Date(item.original_date + "T00:00:00").toLocaleDateString(
@@ -494,7 +558,7 @@ function BacklogCard({ item, onReschedule, onResolve, onDismiss }) {
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
-                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-2 py-1.5 text-xs border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={() => {
@@ -507,7 +571,7 @@ function BacklogCard({ item, onReschedule, onResolve, onDismiss }) {
               </button>
               <button
                 onClick={() => setRescheduling(false)}
-                className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+                className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-300"
               >
                 Cancel
               </button>
@@ -516,21 +580,21 @@ function BacklogCard({ item, onReschedule, onResolve, onDismiss }) {
             <div className="flex items-center gap-2 mt-2">
               <button
                 onClick={() => setRescheduling(true)}
-                className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-400"
               >
                 <Calendar className="w-3.5 h-3.5" /> Reschedule
               </button>
-              <span className="text-gray-300">|</span>
+              <span className="text-slate-600">|</span>
               <button
                 onClick={() => onResolve(item.id)}
-                className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700"
+                className="flex items-center gap-1 text-xs font-medium text-green-400 hover:text-green-400"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" /> Mark Done
               </button>
-              <span className="text-gray-300">|</span>
+              <span className="text-slate-600">|</span>
               <button
                 onClick={() => onDismiss(item.id)}
-                className="text-xs text-gray-400 hover:text-red-500"
+                className="text-xs text-slate-500 hover:text-red-500"
               >
                 Dismiss
               </button>
@@ -553,7 +617,7 @@ function SessionCard({ session, onEdit, onDelete, onStart, aiCheckingId }) {
 
   return (
     <div
-      className={`bg-white border rounded-xl p-5 transition-all hover:shadow-sm ${isPast ? "border-red-200 bg-red-50/30" : "border-gray-200 hover:border-gray-300"}`}
+      className={`bg-[#1a2235] border rounded-xl p-5 transition-all hover:shadow-sm ${isPast ? "border-red-500/20 bg-red-500/5" : "border-slate-700 hover:border-slate-600"}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -561,7 +625,7 @@ function SessionCard({ session, onEdit, onDelete, onStart, aiCheckingId }) {
             <div
               className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`}
             />
-            <h3 className="text-sm font-semibold text-gray-900 truncate">
+            <h3 className="text-sm font-semibold text-slate-100 truncate">
               {session.title}
             </h3>
             <span
@@ -575,13 +639,13 @@ function SessionCard({ session, onEdit, onDelete, onStart, aiCheckingId }) {
               </span>
             )}
             {isPast && (
-              <span className="text-xs font-medium px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full flex-shrink-0">
+              <span className="text-xs font-medium px-2 py-0.5 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-full flex-shrink-0">
                 Overdue
               </span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-1.5">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-1.5">
             <span className="inline-flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5" />
               {new Date(
@@ -598,19 +662,19 @@ function SessionCard({ session, onEdit, onDelete, onStart, aiCheckingId }) {
                 </span>
               )}
             </span>
-            <span className="bg-gray-100 px-2 py-0.5 rounded-full">
+            <span className="bg-slate-700/50 px-2 py-0.5 rounded-full">
               {TYPE_LABELS[session.type] || session.type}
             </span>
-            <span className="bg-gray-100 px-2 py-0.5 rounded-full">
+            <span className="bg-slate-700/50 px-2 py-0.5 rounded-full">
               {RECURRENCE_LABELS[session.recurrence] || session.recurrence}
             </span>
             {topic && (
-              <span className="font-medium text-gray-700">{topic.title}</span>
+              <span className="font-medium text-slate-300">{topic.title}</span>
             )}
           </div>
 
           {session.notes && (
-            <p className="text-xs text-gray-400 mt-1 line-clamp-1">
+            <p className="text-xs text-slate-500 mt-1 line-clamp-1">
               {session.notes}
             </p>
           )}
@@ -618,32 +682,57 @@ function SessionCard({ session, onEdit, onDelete, onStart, aiCheckingId }) {
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {(session.status === "pending" ||
-            session.status === "in-progress") && (
-            <button
-              onClick={() => onStart(session)}
-              disabled={aiCheckingId === session.id}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
-            >
-              {aiCheckingId === session.id ? (
-                <RefreshCw
-                  className="w-3.5 h-3.5"
-                  style={{ animation: "spin 1s linear infinite" }}
-                />
-              ) : (
-                <Play className="w-3.5 h-3.5" />
-              )}
-              {session.status === "in-progress" ? "AI Check" : "Start"}
-            </button>
-          )}
+            session.status === "in-progress") && (() => {
+            // Time-window enforcement: allow start 20 min before to 20 min after scheduled time
+            const now = new Date();
+            const scheduled = new Date(session.scheduled_date + "T" + (session.scheduled_time || "09:00"));
+            const windowStart = new Date(scheduled.getTime() - 20 * 60 * 1000);
+            const windowEnd = new Date(scheduled.getTime() + 20 * 60 * 1000);
+            const inWindow = now >= windowStart && now <= windowEnd;
+            const isOverdue = now > windowEnd && session.status === "pending";
+            const minutesUntilStart = Math.round((scheduled.getTime() - now.getTime()) / 60000);
+
+            return (
+              <>
+                {session.status === "pending" && !inWindow && !isOverdue && (
+                  <span className="text-xs text-slate-500 mr-1">
+                    in {minutesUntilStart}m
+                  </span>
+                )}
+                {session.status === "pending" && isOverdue && (
+                  <span className="text-xs text-orange-400 mr-1">
+                    overdue
+                  </span>
+                )}
+                <button
+                  onClick={() => onStart(session)}
+                  disabled={aiCheckingId === session.id || (session.status === "pending" && !inWindow)}
+                  title={session.status === "pending" && !inWindow ? `Available 20 min before scheduled time` : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                    session.status === "pending" && !inWindow
+                      ? "text-slate-500 bg-slate-700/50 cursor-not-allowed"
+                      : "text-white bg-cyan-600 hover:bg-cyan-700"
+                  } disabled:opacity-60`}
+                >
+                  {aiCheckingId === session.id ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Play className="w-3.5 h-3.5" />
+                  )}
+                  {session.status === "in-progress" ? "AI Check" : "Start"}
+                </button>
+              </>
+            );
+          })()}
           <button
             onClick={() => onEdit(session)}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 rounded-lg"
           >
             <Edit3 className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(session.id)}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -664,19 +753,10 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
     if (!session) return;
     setChecking(true);
     try {
-      // Fetch activity signals
-      const [quizRes, flashRes, codingRes] = await Promise.allSettled([
-        fetch(`/api/quiz?topicId=${session.topic_id}&limit=5`).then((r) =>
-          r.json(),
-        ),
-        fetch(`/api/analytics/summary`).then((r) => r.json()),
-        fetch(`/api/coding?topicId=${session.topic_id}`).then((r) => r.json()),
-      ]);
-
-      const quizAttempts =
-        quizRes.status === "fulfilled" ? quizRes.value.attempts || [] : [];
-      const codingSolutions =
-        codingRes.status === "fulfilled" ? codingRes.value.solutions || [] : [];
+      // Fetch activity signals from local storage
+      const quizAttempts = getQuizAttempts(session.topic_id, 5);
+      const codingSolutions = getCodingSolutions(session.topic_id);
+      const analyticsSummary = getAnalyticsSummary();
 
       // Local heuristic first
       const heuristic = evaluateSessionCompletion(session, {
@@ -745,17 +825,17 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2235] rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <Brain className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
+            <Brain className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-slate-100">
               AI Completion Check
             </h3>
-            <p className="text-xs text-gray-500">"{session?.title}"</p>
+            <p className="text-xs text-slate-400">"{session?.title}"</p>
           </div>
         </div>
 
@@ -765,10 +845,10 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
               className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-3"
               style={{ animation: "spin 1s linear infinite" }}
             />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-slate-400">
               Evaluating your study activity...
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               AI is checking quiz scores, flashcards, and coding activity
             </p>
           </div>
@@ -778,11 +858,11 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
           <div className="space-y-4">
             {/* Confidence meter */}
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-600 mb-1.5">
+              <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
                 <span>Completion confidence</span>
                 <span className="font-semibold">{result.confidence}%</span>
               </div>
-              <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2.5 bg-slate-700/50 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${result.confidence >= 60 ? "bg-green-500" : result.confidence >= 40 ? "bg-yellow-500" : "bg-red-400"}`}
                   style={{ width: `${result.confidence}%` }}
@@ -792,18 +872,18 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
 
             {/* Status */}
             <div
-              className={`rounded-xl px-4 py-3 border ${result.shouldComplete && result.confidence >= 60 ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}
+              className={`rounded-xl px-4 py-3 border ${result.shouldComplete && result.confidence >= 60 ? "bg-green-500/10 border-green-500/20" : "bg-yellow-500/10 border-yellow-500/20"}`}
             >
               <div
-                className={`text-sm font-semibold mb-1 ${result.shouldComplete && result.confidence >= 60 ? "text-green-800" : "text-yellow-800"}`}
+                className={`text-sm font-semibold mb-1 ${result.shouldComplete && result.confidence >= 60 ? "text-green-400" : "text-yellow-300"}`}
               >
                 {result.shouldComplete && result.confidence >= 60
                   ? "✅ Session Complete!"
                   : "⏳ Keep Studying"}
               </div>
-              <div className="text-sm text-gray-700">{result.feedback}</div>
+              <div className="text-sm text-slate-300">{result.feedback}</div>
               {result.reason && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   {result.reason}
                 </div>
               )}
@@ -822,13 +902,13 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
                 <>
                   <button
                     onClick={() => onComplete(session)}
-                    className="flex-1 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50"
+                    className="flex-1 py-2.5 text-sm font-medium text-slate-300 bg-[#1a2235] border border-slate-700 rounded-xl hover:bg-slate-700/50"
                   >
                     Mark Complete Anyway
                   </button>
                   <button
                     onClick={onDismiss}
-                    className="flex-1 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100"
+                    className="flex-1 py-2.5 text-sm font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-xl hover:bg-blue-500/10"
                   >
                     Continue Studying
                   </button>
@@ -840,7 +920,7 @@ function AICompletionPanel({ session, onComplete, onDismiss }) {
 
         <button
           onClick={onDismiss}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600"
+          className="absolute top-4 right-4 p-2 text-slate-500 hover:text-slate-300"
         >
           <X className="w-4 h-4" />
         </button>
@@ -866,6 +946,10 @@ export default function SessionsPage() {
   } = useSessionStore();
   const { getCompletedTopicIds, fetchProgress } = useProgressStore();
   const { updateAnalytics } = useAnalyticsStore();
+  const {
+    activeSessionId, elapsedSeconds, restoreActiveSession,
+    startSession, stopSession, tick,
+  } = useActiveSessionStore();
 
   const [showModal, setShowModal] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
@@ -875,60 +959,92 @@ export default function SessionsPage() {
   const [backlog, setBacklog] = useState([]);
   const [backlogLoading, setBacklogLoading] = useState(false);
   const [missedDetected, setMissedDetected] = useState(false);
+  const [inactivityWarning, setInactivityWarning] = useState(false);
   const didRunMissed = useRef(false);
+  const lastActivityRef = useRef(Date.now());
 
   useEffect(() => {
     fetchSessions();
     fetchProgress();
     fetchBacklog();
+    restoreActiveSession();
   }, []);
 
-  // Auto-detect and move missed sessions to backlog (runs once after sessions load)
+  // Timer tick for active session
   useEffect(() => {
-    if (loading || didRunMissed.current || sessions.length === 0) return;
-    didRunMissed.current = true;
+    if (!activeSessionId) return;
+    const interval = setInterval(() => tick(), 1000);
+    return () => clearInterval(interval);
+  }, [activeSessionId, tick]);
 
-    const missed = detectMissedSessions(sessions);
-    if (missed.length === 0) return;
+  // Inactivity detection (every 10 min check)
+  useEffect(() => {
+    if (!activeSessionId) return;
+    const handleActivity = () => { lastActivityRef.current = Date.now(); };
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("click", handleActivity);
 
-    setMissedDetected(true);
-    // Move each missed session to backlog and mark as missed
-    missed.forEach(async (s) => {
-      try {
-        // Mark as missed
-        await updateSession(s.id, { status: "missed" });
-        // Add to backlog
-        await fetch("/api/sessions/backlog", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+    const checkInterval = setInterval(() => {
+      const inactiveMs = Date.now() - lastActivityRef.current;
+      if (inactiveMs > 10 * 60 * 1000) { // 10 minutes
+        setInactivityWarning(true);
+      }
+    }, 60 * 1000); // Check every minute
+
+    return () => {
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("click", handleActivity);
+      clearInterval(checkInterval);
+    };
+  }, [activeSessionId]);
+
+  // Auto-detect and move missed sessions to backlog (runs every 60s)
+  useEffect(() => {
+    if (loading || sessions.length === 0) return;
+
+    const checkMissed = () => {
+      const currentSessions = useSessionStore.getState().sessions;
+      const missed = detectMissedSessions(currentSessions);
+      if (missed.length === 0) return;
+
+      setMissedDetected(true);
+      missed.forEach((s) => {
+        try {
+          updateSession(s.id, { status: "missed" });
+          addToBacklog({
             originalSessionId: s.id,
             topicId: s.topic_id,
             originalDate: s.scheduled_date,
             type: s.type,
             title: s.title,
             notes: s.notes,
-          }),
-        });
-      } catch (e) {
-        console.error("Move to backlog error:", e);
-      }
-    });
+          });
+        } catch (e) {
+          console.error("Move to backlog error:", e);
+        }
+      });
 
-    setTimeout(() => {
-      fetchSessions();
-      fetchBacklog();
-    }, 500);
+      setTimeout(() => {
+        fetchSessions();
+        fetchBacklog();
+      }, 500);
+    };
+
+    // Run immediately once, then every 60s
+    if (!didRunMissed.current) {
+      didRunMissed.current = true;
+      checkMissed();
+    }
+    const interval = setInterval(checkMissed, 60 * 1000);
+    return () => clearInterval(interval);
   }, [sessions, loading]);
 
-  const fetchBacklog = async () => {
+  const fetchBacklog = () => {
     setBacklogLoading(true);
     try {
-      const res = await fetch("/api/sessions/backlog");
-      if (res.ok) {
-        const data = await res.json();
-        setBacklog(data.backlog || []);
-      }
+      setBacklog(getBacklog());
     } catch (e) {
       console.error("Backlog fetch error:", e);
     } finally {
@@ -949,7 +1065,9 @@ export default function SessionsPage() {
         topicId: form.topicId,
         scheduledDate: form.scheduledDate,
         scheduledTime: form.scheduledTime,
+        durationMinutes: form.durationMinutes || 30,
         recurrence: form.recurrence,
+        weekdays: form.weekdays || [],
         notes: form.notes,
       });
       fetchSessions();
@@ -963,7 +1081,9 @@ export default function SessionsPage() {
         title: form.title,
         scheduledDate: form.scheduledDate,
         scheduledTime: form.scheduledTime,
+        durationMinutes: form.durationMinutes || 30,
         recurrence: form.recurrence,
+        weekdays: form.weekdays || [],
         notes: form.notes,
       });
       fetchSessions();
@@ -974,8 +1094,7 @@ export default function SessionsPage() {
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
     try {
-      await fetch(`/api/sessions?id=${deleteTarget}`, { method: "DELETE" });
-      fetchSessions();
+      await deleteSession(deleteTarget);
     } catch (e) {
       console.error(e);
     }
@@ -987,49 +1106,44 @@ export default function SessionsPage() {
       // Mark as in-progress
       if (session.status === "pending") {
         await updateSession(session.id, { status: "in-progress" });
+        startSession(session.id);
         fetchSessions();
       }
       // Open AI completion panel
       setAiCheckSession(session);
     },
-    [updateSession],
+    [updateSession, startSession],
   );
 
   const handleAIComplete = useCallback(
     async (session) => {
       const completedAt = new Date().toISOString();
+      const duration = session.duration_minutes || 30;
       await updateSession(session.id, {
         status: "completed",
         completedAt,
-        durationMinutes: 30,
+        durationMinutes: duration,
       });
-      await updateAnalytics({ studyMinutes: 30, sessionsCompleted: 1 });
+      await updateAnalytics({ studyMinutes: duration, sessionsCompleted: 1 });
+      stopSession();
       fetchSessions();
       setAiCheckSession(null);
     },
     [updateSession, updateAnalytics],
   );
 
-  const handleBacklogReschedule = async (id, newDate) => {
-    await fetch("/api/sessions/backlog", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, rescheduledDate: newDate }),
-    });
+  const handleBacklogReschedule = (id, newDate) => {
+    updateBacklogItem(id, { rescheduledDate: newDate });
     fetchBacklog();
   };
 
-  const handleBacklogResolve = async (id) => {
-    await fetch("/api/sessions/backlog", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, resolved: true }),
-    });
+  const handleBacklogResolve = (id) => {
+    updateBacklogItem(id, { resolved: true });
     fetchBacklog();
   };
 
-  const handleBacklogDismiss = async (id) => {
-    await fetch(`/api/sessions/backlog?id=${id}`, { method: "DELETE" });
+  const handleBacklogDismiss = (id) => {
+    deleteBacklogItem(id);
     fetchBacklog();
   };
 
@@ -1066,10 +1180,10 @@ export default function SessionsPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+            <h1 className="text-3xl font-semibold text-slate-100 tracking-tight mb-1">
               Study Sessions
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-400">
               AI-scheduled daily learning with automatic topic progression
             </p>
           </div>
@@ -1086,13 +1200,13 @@ export default function SessionsPage() {
 
         {/* Missed sessions banner */}
         {missedDetected && (
-          <div className="flex items-start gap-3 px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl mb-4">
-            <Archive className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 px-4 py-3 bg-purple-500/10 border border-purple-500/20 rounded-xl mb-4">
+            <Archive className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
             <div>
-              <div className="text-sm font-semibold text-purple-800">
+              <div className="text-sm font-semibold text-purple-300">
                 Sessions moved to Backlog
               </div>
-              <div className="text-xs text-purple-600">
+              <div className="text-xs text-purple-400">
                 Past-due sessions were automatically moved to the backlog. You
                 can reschedule or dismiss them.
               </div>
@@ -1102,7 +1216,7 @@ export default function SessionsPage() {
                 setActiveTab("backlog");
                 setMissedDetected(false);
               }}
-              className="flex-shrink-0 text-xs font-semibold text-purple-700 bg-purple-100 px-3 py-1.5 rounded-lg hover:bg-purple-200"
+              className="flex-shrink-0 text-xs font-semibold text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-lg hover:bg-purple-500/20"
             >
               View Backlog
             </button>
@@ -1110,18 +1224,18 @@ export default function SessionsPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+        <div className="flex gap-1 mb-5 bg-slate-700/50 rounded-xl p-1 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5
-                ${activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                ${activeTab === tab.id ? "bg-[#1a2235] text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-100"}`}
             >
               {tab.label}
               {tab.count > 0 && (
                 <span
-                  className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? "bg-gray-100 text-gray-600" : "text-gray-400"}`}
+                  className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? "bg-slate-700/50 text-slate-400" : "text-slate-500"}`}
                 >
                   {tab.count}
                 </span>
@@ -1141,12 +1255,12 @@ export default function SessionsPage() {
                 />
               </div>
             ) : backlog.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-                <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="text-center py-16 bg-[#1a2235] rounded-2xl border border-slate-700">
+                <div className="w-14 h-14 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle2 className="w-7 h-7 text-green-400" />
                 </div>
-                <p className="font-medium text-gray-700">Backlog is clear!</p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="font-medium text-slate-300">Backlog is clear!</p>
+                <p className="text-sm text-slate-500 mt-1">
                   No missed sessions to reschedule
                 </p>
               </div>
@@ -1177,12 +1291,12 @@ export default function SessionsPage() {
                 />
               </div>
             ) : currentSessions.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Calendar className="w-7 h-7 text-gray-400" />
+              <div className="text-center py-16 bg-[#1a2235] rounded-2xl border border-slate-700">
+                <div className="w-14 h-14 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-7 h-7 text-slate-500" />
                 </div>
-                <p className="font-medium text-gray-700">No sessions found</p>
-                <p className="text-sm text-gray-400 mt-1 mb-4">
+                <p className="font-medium text-slate-300">No sessions found</p>
+                <p className="text-sm text-slate-500 mt-1 mb-4">
                   {activeTab === "all"
                     ? "Create your first study session"
                     : `No ${activeTab} sessions`}
@@ -1249,6 +1363,31 @@ export default function SessionsPage() {
           onDismiss={() => setAiCheckSession(null)}
         />
       )}
+
+      {/* Inactivity Warning */}
+      {inactivityWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-[#1a2235] rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-6 h-6 text-amber-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-100 mb-2">Session Inactive</h3>
+            <p className="text-sm text-slate-400 mb-5">
+              Session appears inactive. Keep the app open and continue your session to maintain progress.
+            </p>
+            <button
+              onClick={() => {
+                setInactivityWarning(false);
+                lastActivityRef.current = Date.now();
+              }}
+              className="w-full py-2.5 bg-cyan-600 text-white text-sm font-semibold rounded-xl hover:bg-cyan-700 transition-colors"
+            >
+              I&apos;m Still Here
+            </button>
+          </div>
+        </div>
+      )}
+
       <style
         jsx
         global

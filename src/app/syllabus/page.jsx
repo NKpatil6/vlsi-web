@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import AppLayout from "@/components/AppLayout";
 import { TOPICS, getTopicsByTrack, isTopicUnlocked } from "@/data/syllabusData";
 import { useProgressStore } from "@/stores/progressStore";
@@ -51,16 +52,16 @@ export default function SyllabusPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-2">
+          <h1 className="text-3xl font-semibold text-slate-100 tracking-tight mb-2">
             Learning Roadmap
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400">
             Master VLSI Design and Verification systematically
           </p>
         </div>
 
         {/* Track Tabs */}
-        <div className="border-b border-gray-200 mb-6">
+        <div className="border-b border-slate-700 mb-6">
           <div className="flex gap-6">
             <button
               onClick={() => setSelectedTrack("design")}
@@ -68,13 +69,13 @@ export default function SyllabusPage() {
                 pb-3 border-b-2 font-medium text-sm transition-colors
                 ${
                   selectedTrack === "design"
-                    ? "border-blue-600 text-gray-900"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-blue-600 text-slate-100"
+                    : "border-transparent text-slate-400 hover:text-slate-300"
                 }
               `}
             >
               <span>Digital Design Track</span>
-              <span className="ml-2 text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="ml-2 text-xs bg-slate-700/30 px-2 py-0.5 rounded-full">
                 {designTopics.length}
               </span>
             </button>
@@ -84,13 +85,13 @@ export default function SyllabusPage() {
                 pb-3 border-b-2 font-medium text-sm transition-colors
                 ${
                   selectedTrack === "verification"
-                    ? "border-blue-600 text-gray-900"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-blue-600 text-slate-100"
+                    : "border-transparent text-slate-400 hover:text-slate-300"
                 }
               `}
             >
               <span>Verification Track</span>
-              <span className="ml-2 text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="ml-2 text-xs bg-slate-700/30 px-2 py-0.5 rounded-full">
                 {verificationTopics.length}
               </span>
             </button>
@@ -108,11 +109,11 @@ export default function SyllabusPage() {
               <div
                 key={topic.id}
                 className={`
-                  bg-white border rounded-xl p-5 transition-all
+                  bg-[#1a2235] border rounded-xl p-5 transition-all
                   ${
                     unlocked
-                      ? "border-gray-200 hover:border-gray-300"
-                      : "border-gray-100 bg-gray-50"
+                      ? "border-slate-700 hover:border-slate-600"
+                      : "border-slate-700/50 bg-slate-800/50"
                   }
                 `}
               >
@@ -123,10 +124,10 @@ export default function SyllabusPage() {
                     flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-sm font-semibold
                     ${
                       completed
-                        ? "bg-green-50 text-green-600"
+                        ? "bg-green-500/10 text-green-400"
                         : unlocked
-                          ? "bg-blue-50 text-blue-600"
-                          : "bg-gray-100 text-gray-400"
+                          ? "bg-cyan-500/10 text-cyan-400"
+                          : "bg-slate-700/30 text-slate-400"
                     }
                   `}
                   >
@@ -138,12 +139,12 @@ export default function SyllabusPage() {
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div>
                         <h3
-                          className={`text-base font-semibold ${unlocked ? "text-gray-900" : "text-gray-400"}`}
+                          className={`text-base font-semibold ${unlocked ? "text-slate-100" : "text-slate-400"}`}
                         >
                           {topic.title}
                         </h3>
                         <p
-                          className={`text-sm mt-1 ${unlocked ? "text-gray-600" : "text-gray-400"}`}
+                          className={`text-sm mt-1 ${unlocked ? "text-slate-400" : "text-slate-400"}`}
                         >
                           {topic.description}
                         </p>
@@ -151,33 +152,33 @@ export default function SyllabusPage() {
 
                       {/* Status Badge */}
                       {completed ? (
-                        <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-xs font-medium text-green-700 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1 text-xs font-medium text-green-400 flex-shrink-0">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Completed
                         </div>
                       ) : !unlocked ? (
-                        <div className="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded-full px-3 py-1 text-xs font-medium text-gray-500 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 bg-slate-700/30 border border-slate-700 rounded-full px-3 py-1 text-xs font-medium text-slate-400 flex-shrink-0">
                           <Lock className="w-3.5 h-3.5" />
                           Locked
                         </div>
                       ) : topicProgress ? (
-                        <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-xs font-medium text-blue-700 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-3 py-1 text-xs font-medium text-cyan-400 flex-shrink-0">
                           In Progress
                         </div>
                       ) : null}
                     </div>
 
                     {/* Meta Info */}
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-3">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mb-3">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
                         {topic.estimatedHours}h
                       </span>
-                      <span className="inline-flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 bg-slate-700/30 px-2 py-0.5 rounded-full">
                         {topic.difficulty}
                       </span>
                       {topic.prerequisites.length > 0 && (
-                        <span className="text-gray-400">
+                        <span className="text-slate-400">
                           {topic.prerequisites.length} prerequisite
                           {topic.prerequisites.length > 1 ? "s" : ""}
                         </span>
@@ -186,21 +187,21 @@ export default function SyllabusPage() {
 
                     {/* Subtopics */}
                     {topic.subtopics.length > 0 && (
-                      <div className="border-t border-gray-100 pt-3">
-                        <div className="text-xs font-medium text-gray-700 mb-2">
+                      <div className="border-t border-slate-700/50 pt-3">
+                        <div className="text-xs font-medium text-slate-300 mb-2">
                           Key Concepts:
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {topic.subtopics.slice(0, 4).map((subtopic, i) => (
                             <span
                               key={i}
-                              className="text-xs bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-gray-600"
+                              className="text-xs bg-slate-800/50 border border-slate-700 rounded-full px-2.5 py-1 text-slate-400"
                             >
                               {subtopic}
                             </span>
                           ))}
                           {topic.subtopics.length > 4 && (
-                            <span className="text-xs text-gray-400 px-2 py-1">
+                            <span className="text-xs text-slate-400 px-2 py-1">
                               +{topic.subtopics.length - 4} more
                             </span>
                           )}
@@ -211,27 +212,27 @@ export default function SyllabusPage() {
                     {/* Action Buttons */}
                     {unlocked && !completed && (
                       <div className="flex items-center gap-2 mt-4">
-                        <a
-                          href={`/ai-explorer?topic=${topic.id}`}
-                          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                        <Link
+                          to={`/ai-explorer?topic=${topic.id}`}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-cyan-400 hover:text-cyan-300"
                         >
                           Start Learning
                           <ChevronRight className="w-4 h-4" />
-                        </a>
-                        <span className="text-gray-300">|</span>
-                        <a
-                          href={`/quiz?topic=${topic.id}`}
-                          className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                        </Link>
+                        <span className="text-slate-600">|</span>
+                        <Link
+                          to={`/quiz?topic=${topic.id}`}
+                          className="text-sm font-medium text-slate-400 hover:text-slate-100"
                         >
                           Take Quiz
-                        </a>
-                        <span className="text-gray-300">|</span>
-                        <a
-                          href={`/flashcards?topic=${topic.id}`}
-                          className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                        </Link>
+                        <span className="text-slate-600">|</span>
+                        <Link
+                          to={`/flashcards?topic=${topic.id}`}
+                          className="text-sm font-medium text-slate-400 hover:text-slate-100"
                         >
                           Study Flashcards
-                        </a>
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -242,13 +243,13 @@ export default function SyllabusPage() {
         </div>
 
         {/* Track Info */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+        <div className="mt-8 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-slate-100 mb-2">
             {selectedTrack === "design"
               ? "📐 Digital Design Track"
               : "✅ Verification Track"}
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-slate-400">
             {selectedTrack === "design"
               ? "Master the fundamentals of digital logic design, from number systems to RTL coding. Complete all Design topics before starting Verification."
               : "Learn advanced verification methodologies including SystemVerilog, UVM, and constrained random testing. Prerequisites: Complete Design track fundamentals first."}

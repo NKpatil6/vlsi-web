@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import AppLayout from "@/components/AppLayout";
 import { TOPICS } from "@/data/syllabusData";
 import { generateFlashcards } from "@/ai/requestAI";
 import { useAnalyticsStore } from "@/stores/analyticsStore";
+import { saveFlashcards, getFlashcards, reviewFlashcard } from "@/lib/storage";
 import {
   Layers,
   RotateCcw,
@@ -150,14 +152,8 @@ export default function FlashcardsPage() {
         setError(result.error || "Failed to generate flashcards.");
         return;
       }
-      // Save to DB first
-      const saved = await fetch("/api/flashcards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId, flashcards: result.flashcards }),
-      });
-      const savedData = await saved.json();
-      const savedCards = savedData.flashcards || result.flashcards;
+      // Save locally
+      const savedCards = saveFlashcards(topicId, result.flashcards);
       setCards(savedCards);
       setRatings(new Array(savedCards.length).fill(null));
       setCurrentIdx(0);
@@ -170,19 +166,17 @@ export default function FlashcardsPage() {
     }
   };
 
-  const handleLoadExisting = async () => {
+  const handleLoadExisting = () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/flashcards?topicId=${topicId}&dueOnly=false`,
-      );
-      const data = await res.json();
-      if (!data.flashcards || data.flashcards.length === 0) {
+      const existing = getFlashcards(topicId);
+      if (!existing || existing.length === 0) {
         setError("No flashcards found for this topic. Generate some first.");
+        setLoading(false);
         return;
       }
-      setCards(data.flashcards);
-      setRatings(new Array(data.flashcards.length).fill(null));
+      setCards(existing);
+      setRatings(new Array(existing.length).fill(null));
       setCurrentIdx(0);
       setPhase("study");
     } catch (e) {
@@ -197,13 +191,9 @@ export default function FlashcardsPage() {
       const card = cards[currentIdx];
       setSubmitting(true);
       try {
-        // Submit SM-2 review
-        if (card.id && !card.id.startsWith("fc-")) {
-          await fetch("/api/flashcards", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ flashcardId: card.id, rating }),
-          });
+        // Submit SM-2 review locally
+        if (card.id) {
+          reviewFlashcard(card.id, rating);
         }
         const updated = [...ratings];
         updated[currentIdx] = rating;
@@ -454,12 +444,12 @@ export default function FlashcardsPage() {
                 <RotateCcw className="w-4 h-4 inline mr-2" />
                 New Session
               </button>
-              <a
-                href="/syllabus"
+              <Link
+                to="/syllabus"
                 className="flex-1 py-3 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center"
               >
                 Continue Learning
-              </a>
+              </Link>
             </div>
           </div>
         )}

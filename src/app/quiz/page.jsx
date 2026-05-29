@@ -5,6 +5,7 @@ import AppLayout from "@/components/AppLayout";
 import { TOPICS } from "@/data/syllabusData";
 import { generateQuiz } from "@/ai/requestAI";
 import { useAnalyticsStore } from "@/stores/analyticsStore";
+import { saveQuizAttempt } from "@/lib/storage";
 import {
   Brain,
   ChevronRight,
@@ -284,22 +285,26 @@ function QuizResults({
     if (submitted.current) return;
     submitted.current = true;
 
-    // Submit to backend
-    fetch("/api/quiz", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // Save quiz attempt locally
+    try {
+      const correctCount = answers.filter((a, i) => a === questions[i].correctAnswer).length;
+      saveQuizAttempt({
         topicId: topic.id,
         questions,
         answers,
+        score: Math.round((correctCount / questions.length) * 100),
         timeSpentSeconds: timeSeconds,
-      }),
-    }).catch((e) => console.error("Submit quiz error:", e));
+      });
+    } catch (e) {
+      console.error("Save quiz error:", e);
+    }
 
     // Update analytics
-    updateAnalytics({ quizzesCompleted: 1 }).catch((e) =>
-      console.error("Analytics error:", e),
-    );
+    try {
+      updateAnalytics({ quizzesCompleted: 1 });
+    } catch (e) {
+      console.error("Analytics error:", e);
+    }
   }, []);
 
   const grade =

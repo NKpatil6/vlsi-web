@@ -17,9 +17,9 @@ import {
 } from "lucide-react";
 
 const DIFFICULTY_COLORS = {
-  beginner: "bg-green-50 text-green-700 border-green-200",
-  intermediate: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  advanced: "bg-red-50 text-red-700 border-red-200",
+  beginner: "bg-green-500/10 text-green-400 border-green-500/30",
+  intermediate: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+  advanced: "bg-red-500/10 text-red-400 border-red-500/30",
 };
 
 const CATEGORY_ICONS = {
@@ -34,17 +34,17 @@ function QuestionCard({ question, index }) {
   const Icon = CATEGORY_ICONS[question.category] || BookOpen;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="bg-[#1a2235] border border-slate-700 rounded-xl overflow-hidden">
       <button
         onClick={() => setExpanded((e) => !e)}
-        className="w-full flex items-start gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-start gap-4 px-5 py-4 text-left hover:bg-slate-800/50 transition-colors"
       >
-        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Icon className="w-4 h-4 text-blue-600" />
+        <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Icon className="w-4 h-4 text-blue-400" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3 mb-1.5">
-            <p className="text-sm font-semibold text-gray-900 leading-snug">
+            <p className="text-sm font-semibold text-slate-100 leading-snug">
               {index + 1}. {question.question}
             </p>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -54,34 +54,34 @@ function QuestionCard({ question, index }) {
                 {question.difficulty}
               </span>
               {expanded ? (
-                <ChevronUp className="w-4 h-4 text-gray-400" />
+                <ChevronUp className="w-4 h-4 text-slate-400" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-slate-400" />
               )}
             </div>
           </div>
-          <span className="text-xs text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-slate-400 capitalize bg-slate-700/30 px-2 py-0.5 rounded-full">
             {question.category}
           </span>
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-5 py-4 space-y-4">
+        <div className="border-t border-slate-700/50 px-5 py-4 space-y-4">
           <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
               Expected Answer
             </div>
-            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+            <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
               {question.expectedAnswer}
             </div>
           </div>
           {question.tips && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3">
               <div className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5">
                 💡 What Interviewers Look For
               </div>
-              <div className="text-sm text-amber-800 leading-relaxed">
+              <div className="text-sm text-amber-300 leading-relaxed">
                 {question.tips}
               </div>
             </div>
@@ -134,20 +134,20 @@ export default function InterviewPage() {
       <div className="p-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+          <h1 className="text-3xl font-semibold text-slate-100 tracking-tight mb-1">
             Interview Prep
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400">
             AI-generated questions from real VLSI interviews at Qualcomm, Intel,
             AMD, and NVIDIA
           </p>
         </div>
 
         {/* Controls */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+        <div className="bg-[#1a2235] border border-slate-700 rounded-xl p-5 mb-6">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-56">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 Topic
               </label>
               <select
@@ -156,7 +156,7 @@ export default function InterviewPage() {
                   setTopicId(e.target.value);
                   setGenerated(false);
                 }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select a topic...</option>
                 <optgroup label="Digital Design Track">
@@ -176,7 +176,7 @@ export default function InterviewPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                 Count: {count}
               </label>
               <input
@@ -205,7 +205,7 @@ export default function InterviewPage() {
             </button>
           </div>
           {error && (
-            <div className="flex items-center gap-2 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="flex items-center gap-2 mt-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -214,14 +214,14 @@ export default function InterviewPage() {
 
         {/* Empty state */}
         {!loading && questions.length === 0 && !generated && (
-          <div className="text-center py-16 bg-white border border-gray-200 rounded-xl">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-16 bg-[#1a2235] border border-slate-700 rounded-xl">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <MessageSquare className="w-8 h-8 text-blue-400" />
             </div>
-            <div className="text-base font-medium text-gray-700 mb-2">
+            <div className="text-base font-medium text-slate-300 mb-2">
               Ready to Prepare
             </div>
-            <div className="text-sm text-gray-500 max-w-sm mx-auto">
+            <div className="text-sm text-slate-400 max-w-sm mx-auto">
               Select a topic above to generate real interview questions with
               detailed expected answers.
             </div>
@@ -230,15 +230,15 @@ export default function InterviewPage() {
 
         {/* Loading */}
         {loading && (
-          <div className="text-center py-16 bg-white border border-gray-200 rounded-xl">
+          <div className="text-center py-16 bg-[#1a2235] border border-slate-700 rounded-xl">
             <div
               className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"
               style={{ animation: "spin 1s linear infinite" }}
             />
-            <div className="text-sm font-medium text-gray-700">
+            <div className="text-sm font-medium text-slate-300">
               Generating interview questions...
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-slate-400 mt-1">
               AI is curating questions from real VLSI interviews
             </div>
           </div>
@@ -248,12 +248,12 @@ export default function InterviewPage() {
         {!loading && questions.length > 0 && (
           <>
             <div className="flex items-center justify-between mb-4">
-              <div className="text-sm text-gray-600 font-medium">
+              <div className="text-sm text-slate-400 font-medium">
                 {questions.length} questions generated
               </div>
               <button
                 onClick={handleGenerate}
-                className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-400 font-medium"
               >
                 <RefreshCw className="w-4 h-4" />
                 Regenerate
@@ -267,14 +267,14 @@ export default function InterviewPage() {
             <div className="mt-6 flex gap-3">
               <a
                 href={"/quiz?topic=" + topicId}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-purple-400 bg-purple-500/10 border border-purple-500/30 rounded-xl hover:bg-purple-500/10 transition-colors"
               >
                 <Brain className="w-4 h-4" />
                 Take Quiz on This Topic
               </a>
               <a
                 href="/ai-explorer"
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-400 bg-blue-500/10 border border-blue-500/30 rounded-xl hover:bg-blue-500/10 transition-colors"
               >
                 <BookOpen className="w-4 h-4" />
                 Study in AI Explorer

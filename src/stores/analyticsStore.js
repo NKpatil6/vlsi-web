@@ -1,89 +1,55 @@
 import { create } from "zustand";
+import { getAnalytics, getAnalyticsSummary, updateAnalytics as storageUpdate } from "@/lib/storage";
 
 export const useAnalyticsStore = create((set, get) => ({
-  // State
   analytics: [],
   summary: null,
   loading: false,
   error: null,
-  lastFetch: null,
 
-  // Actions
-  fetchAnalytics: async (days = 90) => {
+  fetchAnalytics: (days = 90) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`/api/analytics?days=${days}`);
-      if (!response.ok) throw new Error("Failed to fetch analytics");
-
-      const data = await response.json();
-      set({
-        analytics: data.analytics || [],
-        loading: false,
-        lastFetch: Date.now(),
-      });
+      const analytics = getAnalytics(days);
+      set({ analytics, loading: false });
     } catch (error) {
       console.error("[Analytics Store]", error);
       set({ error: error.message, loading: false });
     }
   },
 
-  fetchSummary: async () => {
+  fetchSummary: () => {
     try {
-      const response = await fetch("/api/analytics/summary");
-      if (!response.ok) throw new Error("Failed to fetch summary");
-
-      const data = await response.json();
-      set({ summary: data.summary });
-      return data.summary;
+      const summary = getAnalyticsSummary();
+      set({ summary });
+      return summary;
     } catch (error) {
       console.error("[Analytics Store] Summary error:", error);
-      // Don't throw — return null gracefully so callers don't crash
       return null;
     }
   },
 
-  updateAnalytics: async (updates) => {
+  updateAnalytics: (updates) => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-
-      const response = await fetch("/api/analytics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: today, ...updates }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update analytics");
-
-      const data = await response.json();
-
-      // Update local state
+      const result = storageUpdate(updates);
       set((state) => {
-        const existingIndex = state.analytics.findIndex(
-          (a) => a.date === today,
-        );
-        if (existingIndex >= 0) {
+        const idx = state.analytics.findIndex((a) => a.date === result.date);
+        if (idx >= 0) {
           const updated = [...state.analytics];
-          updated[existingIndex] = data.analytics;
+          updated[idx] = result;
           return { analytics: updated };
-        } else {
-          return { analytics: [data.analytics, ...state.analytics] };
         }
+        return { analytics: [result, ...state.analytics] };
       });
-
       // Re-fetch summary silently
-      get()
-        .fetchSummary()
-        .catch(() => {});
-
-      return data.analytics;
+      get().fetchSummary();
+      return result;
     } catch (error) {
       console.error("[Analytics Store] Update error:", error);
-      // Don't throw so UI callers don't crash
       return null;
     }
   },
 
-  // Selectors
   getHeatmapData: () => {
     return get().analytics.map((a) => ({
       date: a.date,
@@ -95,29 +61,14 @@ export const useAnalyticsStore = create((set, get) => ({
   getWeeklyStats: () => {
     const analytics = get().analytics.slice(0, 7);
     return {
-      totalMinutes: analytics.reduce(
-        (sum, a) => sum + (a.study_minutes || 0),
-        0,
-      ),
-      totalSessions: analytics.reduce(
-        (sum, a) => sum + (a.sessions_completed || 0),
-        0,
-      ),
-      totalQuizzes: analytics.reduce(
-        (sum, a) => sum + (a.quizzes_completed || 0),
-        0,
-      ),
+      totalMinutes: analytics.reduce((sum, a) => sum + (a.study_minutes || 0), 0),
+      totalSessions: analytics.reduce((sum, a) => sum + (a.sessions_completed || 0), 0),
+      totalQuizzes: analytics.reduce((sum, a) => sum + (a.quizzes_completed || 0), 0),
     };
   },
 
   reset: () => {
-    set({
-      analytics: [],
-      summary: null,
-      loading: false,
-      error: null,
-      lastFetch: null,
-    });
+    set({ analytics: [], summary: null, loading: false, error: null });
   },
 }));
 

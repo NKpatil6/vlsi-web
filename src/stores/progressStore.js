@@ -1,63 +1,39 @@
 import { create } from "zustand";
+import { getProgress, updateProgress as storageUpdate } from "@/lib/storage";
 
 export const useProgressStore = create((set, get) => ({
-  // State
-  progress: [], // Array of user_progress objects
+  progress: [],
   loading: false,
   error: null,
-  lastFetch: null,
 
-  // Actions
-  fetchProgress: async () => {
+  fetchProgress: () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch("/api/progress");
-      if (!response.ok) throw new Error("Failed to fetch progress");
-
-      const data = await response.json();
-      set({
-        progress: data.progress || [],
-        loading: false,
-        lastFetch: Date.now(),
-      });
+      const progress = getProgress();
+      set({ progress, loading: false });
     } catch (error) {
       console.error("[Progress Store]", error);
       set({ error: error.message, loading: false });
     }
   },
 
-  updateProgress: async (topicId, updates) => {
+  updateProgress: (topicId, updates) => {
     try {
-      const response = await fetch("/api/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId, ...updates }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update progress");
-
-      const data = await response.json();
-
-      // Update local state
+      const result = storageUpdate(topicId, updates);
       set((state) => ({
         progress: state.progress.some((p) => p.topic_id === topicId)
-          ? state.progress.map((p) =>
-              p.topic_id === topicId ? data.progress : p,
-            )
-          : [...state.progress, data.progress],
+          ? state.progress.map((p) => (p.topic_id === topicId ? result : p))
+          : [...state.progress, result],
       }));
-
-      return data.progress;
+      return result;
     } catch (error) {
       console.error("[Progress Store] Update error:", error);
       throw error;
     }
   },
 
-  // Selectors
   getTopicProgress: (topicId) => {
-    const state = get();
-    return state.progress.find((p) => p.topic_id === topicId) || null;
+    return get().progress.find((p) => p.topic_id === topicId) || null;
   },
 
   isTopicCompleted: (topicId) => {
@@ -66,19 +42,14 @@ export const useProgressStore = create((set, get) => ({
   },
 
   getCompletedTopicIds: () => {
-    return get()
-      .progress.filter((p) => p.completed)
-      .map((p) => p.topic_id);
+    return get().progress.filter((p) => p.completed).map((p) => p.topic_id);
   },
 
   getTotalTimeSpent: () => {
-    return get().progress.reduce(
-      (sum, p) => sum + (p.time_spent_minutes || 0),
-      0,
-    );
+    return get().progress.reduce((sum, p) => sum + (p.time_spent_minutes || 0), 0);
   },
 
   reset: () => {
-    set({ progress: [], loading: false, error: null, lastFetch: null });
+    set({ progress: [], loading: false, error: null });
   },
 }));

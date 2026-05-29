@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { Link, useLocation } from "react-router";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const NAV = [
@@ -55,11 +56,8 @@ const C = {
 export default function AppLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [currentPath, setCurrentPath] = useState("/dashboard");
-
-  useEffect(() => {
-    setCurrentPath(window.location.pathname);
-  }, []);
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   const pageTitle =
     NAV.find((n) => n.href === currentPath)?.name || "VLSI Interview Tracker";
@@ -68,8 +66,8 @@ export default function AppLayout({ children }) {
     const active = currentPath === item.href;
     const narrow = collapsed && !forMobile;
     return (
-      <a
-        href={item.href}
+      <Link
+        to={item.href}
         title={narrow ? item.name : undefined}
         style={{
           display: "flex",
@@ -111,7 +109,7 @@ export default function AppLayout({ children }) {
             {item.name}
           </span>
         )}
-      </a>
+      </Link>
     );
   }
 
@@ -273,7 +271,12 @@ export default function AppLayout({ children }) {
           />
           {!narrow && (
             <span style={{ fontSize: 11, color: C.textMuted }}>
-              Groq LLaMA · Claude fallback
+              {(() => {
+                try {
+                  const s = JSON.parse(localStorage.getItem("vlsi_settings") || "{}");
+                  return s.ai_provider === "gemini" ? "Gemini" : "Groq LLaMA";
+                } catch { return "Groq LLaMA"; }
+              })()}
             </span>
           )}
         </div>

@@ -5,8 +5,9 @@ import {
   validateCodingProblem,
   safeJSONParse,
 } from "./validators";
+import { requestGemini } from "./geminiProvider";
 
-// ─── MODEL REGISTRY (mirrors original GitHub project) ──────────────────────
+// ─── MODEL REGISTRY ──────────────────────────────────────────────────────────
 export const AI_MODELS = {
   LLAMA_70B: "llama-3.3-70b-versatile",
   LLAMA_8B: "llama-3.1-8b-instant",
@@ -19,7 +20,23 @@ export const MODEL_DISPLAY_NAMES = {
   [AI_MODELS.MIXTRAL]: "Mixtral 8x7B 32K (Groq — Free)",
 };
 
-// AI Personas (mirrors original GitHub project)
+// ─── AI Providers ─────────────────────────────────────────────────────────────
+export const AI_PROVIDERS = {
+  GROQ: "groq",
+  GEMINI: "gemini",
+};
+
+/** Read the active provider from settings (defaults to groq). */
+function getActiveProvider() {
+  try {
+    const s = JSON.parse(localStorage.getItem("vlsi_settings") || "{}");
+    return s.ai_provider || AI_PROVIDERS.GROQ;
+  } catch {
+    return AI_PROVIDERS.GROQ;
+  }
+}
+
+// ─── AI Personas ──────────────────────────────────────────────────────────────
 export const AI_PERSONAS = {
   standard: {
     name: "Standard Mentor",
@@ -40,11 +57,10 @@ export const AI_PERSONAS = {
 
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 60000;
-const ANTHROPIC_ENDPOINT = "/integrations/anthropic-claude-opus-4-1/";
 
 /**
- * Centralized AI request — tries Groq first (via /api/ai), falls back to Anthropic.
- * Mirrors the original GitHub project's agentRouterService architecture.
+ * Centralized AI request — routes to Groq or Gemini based on settings.
+ * Provider is read from localStorage under `vlsi_settings.ai_provider`.
  */
 export async function requestAI(prompt, options = {}) {
   const {
@@ -57,41 +73,79 @@ export async function requestAI(prompt, options = {}) {
   } = options;
 
   const personaConfig = AI_PERSONAS[persona] || AI_PERSONAS.standard;
-  const fullPrompt = personaConfig.systemPrompt + "\n\nTask: " + prompt;
 
-  // 1. Try Groq via /api/ai proxy (original GitHub pattern)
+  // ── Route to Gemini if selected ──────────────────────────────────────────
+  const provider = options.provider || getActiveProvider();
+  if (provider === AI_PROVIDERS.GEMINI) {
+    return requestGemini(prompt, {
+      systemPrompt: personaConfig.systemPrompt,
+      maxTokens,
+      temperature,
+      retries,
+      model: options.geminiModel,
+    });
+  }
+
+  // ── Groq (API key stored in localStorage settings) ───────────────────────
   if (useGroq) {
+    let groqKey = null;
+    try {
+      const settings = JSON.parse(localStorage.getItem("vlsi_settings") || "{}");
+      groqKey = settings.groq_api_key || null;
+    } catch {}
+
+    if (!groqKey) {
+      return {
+        success: false,
+        error: "Groq API key not configured. Add it in Settings.",
+        content: null,
+      };
+    }
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
         let res;
         try {
-          res = await fetch("/api/ai", {
+          res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: fullPrompt, model }),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: personaConfig.systemPrompt },
+                { role: "user", content: prompt },
+              ],
+              temperature: options.temperature || 0.7,
+              max_tokens: maxTokens,
+            }),
             signal: controller.signal,
           });
         } finally {
           clearTimeout(timer);
         }
 
-        const data = await res.json();
-
-        if (data.code === "NOT_CONFIGURED") {
-          // No Groq key — fall through to Anthropic silently
-          break;
-        }
-        if (data.code === "RATE_LIMITED") {
-          const wait = data.retryAfter || 30000;
+        if (res.status === 429) {
           if (attempt < retries) {
-            await new Promise((r) => setTimeout(r, wait));
+            await new Promise((r) => setTimeout(r, 30000));
             continue;
           }
-          break; // Fall through to Anthropic
+          break;
         }
-        if (!data.success) {
+        if (!res.ok) {
+          if (attempt < retries) {
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+            continue;
+          }
+          break;
+        }
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
           if (attempt < retries) {
             await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
             continue;
@@ -100,9 +154,9 @@ export async function requestAI(prompt, options = {}) {
         }
         return {
           success: true,
-          content: data.content,
+          content,
           provider: "groq",
-          model: data.model,
+          model: data.model || model,
         };
       } catch (err) {
         if (err.name === "AbortError") break;
@@ -112,42 +166,7 @@ export async function requestAI(prompt, options = {}) {
     }
   }
 
-  // 2. Fallback: Anthropic Claude Opus 4.1
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      let res;
-      try {
-        res = await fetch(ANTHROPIC_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: fullPrompt }],
-          }),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-      if (!res.ok) throw new Error("Anthropic error: " + res.status);
-      const data = await res.json();
-      const content = data?.choices?.[0]?.message?.content || "";
-      if (!content) throw new Error("Empty response");
-      return { success: true, content, provider: "anthropic" };
-    } catch (err) {
-      if (attempt < retries)
-        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-      else
-        return {
-          success: false,
-          error: err.message || "All AI providers failed",
-          content: null,
-        };
-    }
-  }
-
-  return { success: false, error: "All AI providers failed", content: null };
+  return { success: false, error: "Groq request failed", content: null };
 }
 
 function extractJSON(content) {
@@ -575,5 +594,104 @@ export async function generateStudyPlan(topicTitle, availableHoursPerDay) {
     success: plan.length > 50,
     plan,
     error: plan.length <= 50 ? "Generated plan too short" : undefined,
+  };
+}
+
+/**
+ * Generate waveform diagnostic analysis for simulation mismatches.
+ */
+export async function generateWaveformDiagnostic({
+  topic,
+  failureTimestamp,
+  simulatorLogs,
+  waveformDiff,
+  userCode,
+}) {
+  const prompt =
+    "You are an expert VLSI Design Verification Engineer and Mentor. " +
+    "Analyze a simulation mismatch and provide a targeted diagnostic breakdown.\n\n" +
+    "CONTEXT:\n" +
+    "Topic: " + (topic || "General VLSI") + "\n" +
+    "Failure Timestamp: " + (failureTimestamp || "N/A") + "\n" +
+    "Simulator Logs:\n" + (simulatorLogs || "No logs provided") + "\n\n" +
+    "Waveform Diff Delta:\n" + (waveformDiff || "No diff provided") + "\n\n" +
+    "USER RTL CODE:\n" + (userCode || "No code provided") + "\n\n" +
+    "Provide exactly this format:\n\n" +
+    "## Simulation Diagnostic\n\n" +
+    "**The Symptom:** [description of what went wrong]\n\n" +
+    "### Root Cause Analysis\n" +
+    "[detailed hardware-specific root cause]\n\n" +
+    "### How to Fix\n" +
+    "[specific fix guidance with code examples if applicable]\n\n" +
+    "Be concise, technical, and actionable. No conversational filler.";
+
+  const aiResponse = await requestAI(prompt, {
+    temperature: 0.4,
+    maxTokens: 3000,
+  });
+
+  if (!aiResponse.success) {
+    return { success: false, error: aiResponse.error, diagnostic: "" };
+  }
+
+  const diagnostic = String(aiResponse.content || "").trim().substring(0, 8000);
+  return {
+    success: diagnostic.length > 50,
+    diagnostic,
+    error: diagnostic.length <= 50 ? "Diagnostic too short" : undefined,
+  };
+}
+
+/**
+ * Generate a Find-the-Bug debugging challenge.
+ */
+export async function generateBugChallenge(topicTitle, difficulty = "intermediate") {
+  const prompt =
+    "You are a deterministic hardware engineering synthesis engine. " +
+    "Generate a 'Find the Bug' debugging challenge for VLSI students.\n\n" +
+    "Target Student Level: " + difficulty + "\n" +
+    "Core Topic Focus: " + topicTitle + "\n\n" +
+    "STRICT RULES:\n" +
+    "- Exactly ONE intentional realistic bug\n" +
+    "- No comments in generated code\n" +
+    "- Fixed external interface\n" +
+    "- Hidden testbench outputs sim_output.vcd\n\n" +
+    "Return exactly this JSON schema:\n" +
+    "{\n" +
+    '  "title": "Short descriptive title",\n' +
+    '  "difficulty": "' + difficulty + '",\n' +
+    '  "bug_type_category": "e.g., off-by-one, latch inference, clock edge, reset polarity",\n' +
+    '  "problem_statement_markdown": "Detailed description of the expected behavior and the bug hint",\n' +
+    '  "fixed_port_template_with_bug": "Complete module code WITH the intentional bug",\n' +
+    '  "hidden_sv_testbench": "Self-contained SystemVerilog testbench that exposes the bug",\n' +
+    '  "internal_golden_solution": "The correct implementation without the bug"\n' +
+    "}\n\n" +
+    "Return ONLY the JSON object. No markdown blocks, no explanations.";
+
+  const aiResponse = await requestAI(prompt, {
+    temperature: 0.7,
+    maxTokens: 5000,
+  });
+
+  if (!aiResponse.success) {
+    return { success: false, error: aiResponse.error, challenge: null };
+  }
+
+  const parsed = safeJSONParse(extractJSON(aiResponse.content));
+  if (!parsed || !parsed.title || !parsed.fixed_port_template_with_bug) {
+    return { success: false, error: "Invalid challenge format", challenge: null };
+  }
+
+  return {
+    success: true,
+    challenge: {
+      title: String(parsed.title || "").trim(),
+      difficulty: String(parsed.difficulty || difficulty).trim(),
+      bugType: String(parsed.bug_type_category || "").trim(),
+      problemStatement: String(parsed.problem_statement_markdown || "").trim(),
+      buggyCode: String(parsed.fixed_port_template_with_bug || "").trim(),
+      testbench: String(parsed.hidden_sv_testbench || "").trim(),
+      goldenSolution: String(parsed.internal_golden_solution || "").trim(),
+    },
   };
 }

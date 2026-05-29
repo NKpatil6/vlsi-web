@@ -98,18 +98,19 @@ export function buildDailyLearningSession(
 
 /**
  * Check all pending sessions and return those that should be marked missed.
- * A session is missed if its scheduled_date < today and status is 'pending'.
+ * A session is missed if its scheduled datetime + 20 min grace < now.
  * @param {Array} sessions
  * @returns {Array} sessions to move to backlog
  */
 export function detectMissedSessions(sessions = []) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = Date.now();
+  const GRACE_MS = 20 * 60 * 1000; // 20 minutes
 
   return sessions.filter((s) => {
     if (s.status !== "pending") return false;
-    const sessionDate = new Date(s.scheduled_date + "T00:00:00");
-    return sessionDate < today;
+    const timeStr = s.scheduled_time || "00:00";
+    const sessionDateTime = new Date(s.scheduled_date + "T" + timeStr);
+    return sessionDateTime.getTime() + GRACE_MS < now;
   });
 }
 
@@ -157,8 +158,14 @@ export function evaluateSessionCompletion(session, activityData = {}) {
 
   // Check coding activity
   if (session.type === "coding" && codingSolutions.length > 0) {
-    reasons.push(`${codingSolutions.length} coding solution(s) submitted`);
-    confidence = Math.max(confidence, 0.8);
+    const passedSolutions = codingSolutions.filter((s) => s.passed === true);
+    if (passedSolutions.length > 0) {
+      reasons.push(`${passedSolutions.length} coding solution(s) passed validation`);
+      confidence = Math.max(confidence, 0.9);
+    } else {
+      reasons.push(`${codingSolutions.length} solution(s) submitted (none passed yet)`);
+      confidence = Math.max(confidence, 0.3);
+    }
   }
 
   // Time-based heuristic

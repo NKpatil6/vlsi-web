@@ -35,10 +35,10 @@ const DEFAULT_COMPONENTS = {
 		<li className="font-normal text-base leading-relaxed" {...props} />
 	),
 	code: ({ node, ...props }) => (
-		<code className="bg-gray-100 p-1 font-mono text-sm" {...props} />
+		<code className="bg-slate-700/50 text-cyan-300 p-1 font-mono text-sm rounded" {...props} />
 	),
 	blockquote: ({ node, ...props }) => (
-		<blockquote className="border-gray-300 border-l-4 pl-4 italic" {...props} />
+		<blockquote className="border-slate-600 border-l-4 pl-4 italic text-slate-300" {...props} />
 	),
 	img: ({ node, ...props }) => (
 		<img className="mx-auto my-4 rounded" {...props} />
@@ -47,11 +47,11 @@ const DEFAULT_COMPONENTS = {
 		<table className="min-w-full border-collapse" {...props} />
 	),
 	thead: ({ node, ...props }) => (
-		<thead className="border-gray-200 border-b-2" {...props} />
+		<thead className="border-slate-600 border-b-2" {...props} />
 	),
 	tbody: ({ node, ...props }) => <tbody {...props} />,
 	tr: ({ node, ...props }) => (
-		<tr className="border-gray-200 border-b" {...props} />
+		<tr className="border-slate-700 border-b" {...props} />
 	),
 	th: ({ children }) => <th className="p-2 text-left">{children}</th>,
 	td: ({ children }) => <td className="p-2">{children}</td>,
@@ -59,7 +59,7 @@ const DEFAULT_COMPONENTS = {
 	em: ({ node, ...props }) => <em className="italic" {...props} />,
 	del: ({ node, ...props }) => <del className="line-through" {...props} />,
 	hr: ({ node, ...props }) => (
-		<hr className="my-4 border-gray-200 border-t" {...props} />
+		<hr className="my-4 border-slate-700 border-t" {...props} />
 	),
 };
 

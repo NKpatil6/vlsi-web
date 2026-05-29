@@ -13,13 +13,11 @@ export function isElectron() {
   return typeof window !== "undefined" && !!window?.electronAPI;
 }
 
-/** Fetch saved QuestaSim path from user settings (stored in DB) */
-export async function getStoredQuestaPath() {
+/** Fetch saved QuestaSim path from user settings (stored locally) */
+export function getStoredQuestaPath() {
   try {
-    const res = await fetch("/api/settings");
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.settings?.questasim_path || null;
+    const settings = JSON.parse(localStorage.getItem("vlsi_settings") || "{}");
+    return settings.questasim_path || null;
   } catch {
     return null;
   }
@@ -40,7 +38,7 @@ export async function checkQuestasimStatus() {
     }
   }
   // Web mode — check if user has saved a path
-  const savedPath = await getStoredQuestaPath();
+  const savedPath = getStoredQuestaPath();
   return {
     available: false,
     path: savedPath,
@@ -66,7 +64,7 @@ export async function runInQuestasim({
   if (isElectron()) {
     try {
       // Pass the user's configured path so Electron can use it
-      const storedPath = await getStoredQuestaPath();
+      const storedPath = getStoredQuestaPath();
       const result = await window.electronAPI.runVSim({
         code,
         testbench,
@@ -86,7 +84,7 @@ export async function runInQuestasim({
   }
 
   // Web mode — return helpful guidance
-  const storedPath = await getStoredQuestaPath();
+  const storedPath = getStoredQuestaPath();
   const pathNote = storedPath
     ? `Your configured vsim.exe path: ${storedPath}`
     : "Set your vsim.exe path in Settings → QuestaSim Configuration";

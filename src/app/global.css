@@ -7,3 +7,56 @@
     @apply outline-none focus:outline-none;
   }
 }
+
+/* Dark theme for native select/option dropdowns */
+select, select option, select optgroup {
+  color-scheme: dark;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+select option {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  padding: 8px;
+}
+
+select option:hover,
+select option:checked {
+  background-color: #1e293b;
+  color: #22d3ee;
+}
+
+select optgroup {
+  background-color: #0f172a;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Dark scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Dark date/time inputs */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+/* Dark number inputs */
+input[type="number"] {
+  color-scheme: dark;
+}

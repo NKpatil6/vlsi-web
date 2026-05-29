@@ -3,37 +3,28 @@ import { defineConfig } from 'vite';
 import babel from 'vite-plugin-babel';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { loadFontsFromTailwindSource } from './plugins/loadFontsFromTailwindSource';
-import { nextPublicProcessEnv } from './plugins/nextPublicProcessEnv';
 
-// Pure Vite SPA config — no SSR, no React Router framework mode.
+// Electron build: pure client SPA, no SSR, no server bundle
 export default defineConfig({
-  esbuild: {
-    loader: 'tsx',
-    include: /\.[jt]sx?$/,
+  base: './',
+  root: '.',
+  build: {
+    outDir: 'build/client',
+    emptyOutDir: true,
   },
   envPrefix: 'NEXT_PUBLIC_',
-  optimizeDeps: {
-    include: ['fast-glob', 'lucide-react'],
-    exclude: [
-      '@hono/auth-js/react',
-      '@hono/auth-js',
-      '@auth/core',
-      'hono/context-storage',
-      '@auth/core/errors',
-      'fsevents',
-      'lightningcss',
-    ],
-  },
   logLevel: 'info',
   plugins: [
-    nextPublicProcessEnv(),
     babel({
       include: ['**/*.js', '**/*.jsx'],
       exclude: ['**/*.ts', '**/*.tsx', /node_modules/],
       babelConfig: {
         babelrc: false,
         configFile: false,
-        plugins: ['styled-jsx/babel'],
+        plugins: [
+          ['@babel/plugin-transform-react-jsx', { runtime: 'automatic' }],
+          'styled-jsx/babel',
+        ],
       },
     }),
     loadFontsFromTailwindSource(),

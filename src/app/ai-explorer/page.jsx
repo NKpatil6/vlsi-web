@@ -53,14 +53,14 @@ function MarkdownBlock({ text }) {
           return (
             <h2
               key={i}
-              className="text-base font-semibold text-gray-900 mt-4 mb-2"
+              className="text-base font-semibold text-slate-100 mt-4 mb-2"
             >
               {line.slice(3)}
             </h2>
           );
         if (line.startsWith("# "))
           return (
-            <h1 key={i} className="text-lg font-bold text-gray-900 mt-4 mb-2">
+            <h1 key={i} className="text-lg font-bold text-slate-100 mt-4 mb-2">
               {line.slice(2)}
             </h1>
           );
@@ -68,7 +68,7 @@ function MarkdownBlock({ text }) {
           return (
             <h3
               key={i}
-              className="text-sm font-semibold text-gray-800 mt-3 mb-1"
+              className="text-sm font-semibold text-slate-200 mt-3 mb-1"
             >
               {line.slice(4)}
             </h3>
@@ -76,19 +76,19 @@ function MarkdownBlock({ text }) {
         if (line.startsWith("- ") || line.startsWith("• "))
           return (
             <div key={i} className="flex items-start gap-2 my-1">
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0" />
-              <span className="text-sm text-gray-700">{line.slice(2)}</span>
+              <span className="w-1.5 h-1.5 bg-slate-500 rounded-full mt-2 flex-shrink-0" />
+              <span className="text-sm text-slate-300">{line.slice(2)}</span>
             </div>
           );
         if (line.startsWith("**") && line.endsWith("**"))
           return (
-            <div key={i} className="font-semibold text-sm text-gray-900 my-1">
+            <div key={i} className="font-semibold text-sm text-slate-100 my-1">
               {line.slice(2, -2)}
             </div>
           );
         if (line.trim() === "") return <div key={i} className="h-2" />;
         return (
-          <p key={i} className="text-sm text-gray-700 my-1 leading-relaxed">
+          <p key={i} className="text-sm text-slate-300 my-1 leading-relaxed">
             {line}
           </p>
         );
@@ -140,7 +140,7 @@ export default function AIExplorerPage() {
         // Mark topic as accessed
         updateProgress(topicId, {
           lastAccessedAt: new Date().toISOString(),
-        }).catch(() => {});
+        });
       } else if (mode === "interview") {
         const res = await generateInterviewQuestions(topic.title, 5);
         if (!res.success) throw new Error(res.error || "Generation failed");
@@ -163,10 +163,10 @@ export default function AIExplorerPage() {
       <div className="p-6 max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+          <h1 className="text-3xl font-semibold text-slate-100 tracking-tight mb-1">
             AI Explorer
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400">
             AI-powered learning tools for VLSI interview prep
           </p>
         </div>
@@ -174,10 +174,10 @@ export default function AIExplorerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Controls */}
           <div className="lg:col-span-1">
-            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 sticky top-6">
+            <div className="bg-[#1a2235] border border-slate-700 rounded-xl p-5 space-y-4 sticky top-6">
               {/* Mode Selection */}
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                   Mode
                 </div>
                 <div className="space-y-2">
@@ -191,16 +191,16 @@ export default function AIExplorerPage() {
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
                         mode === m.id
-                          ? "bg-blue-50 text-blue-900 border border-blue-200"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-500/10 text-blue-900 border border-blue-500/30"
+                          : "text-slate-300 hover:bg-slate-700/50"
                       }`}
                     >
                       <m.icon
-                        className={`w-4 h-4 flex-shrink-0 ${mode === m.id ? "text-blue-600" : "text-gray-400"}`}
+                        className={`w-4 h-4 flex-shrink-0 ${mode === m.id ? "text-blue-600" : "text-slate-400"}`}
                       />
                       <div>
                         <div className="font-medium">{m.label}</div>
-                        <div className="text-xs text-gray-500">{m.desc}</div>
+                        <div className="text-xs text-slate-400">{m.desc}</div>
                       </div>
                     </button>
                   ))}
@@ -209,7 +209,7 @@ export default function AIExplorerPage() {
 
               {/* Topic Selection */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                   Topic
                 </label>
                 <select
@@ -218,7 +218,7 @@ export default function AIExplorerPage() {
                     setTopicId(e.target.value);
                     setResult(null);
                   }}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <optgroup label="Digital Design">
                     {TOPICS.filter((t) => t.track === "design").map((t) => (
@@ -242,7 +242,7 @@ export default function AIExplorerPage() {
               {/* Mode-specific options */}
               {mode === "explain" && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                     Specific Concept (optional)
                   </label>
                   <input
@@ -250,14 +250,14 @@ export default function AIExplorerPage() {
                     value={concept}
                     onChange={(e) => setConcept(e.target.value)}
                     placeholder="e.g., Setup time violation"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               )}
 
               {mode === "studyplan" && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                     Hours per Day:{" "}
                     <span className="text-blue-600">{hoursPerDay}h</span>
                   </label>
@@ -274,18 +274,18 @@ export default function AIExplorerPage() {
 
               {/* Topic Info */}
               {topic && (
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                  <div className="text-xs text-gray-500 mb-1">
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">
                     Selected Topic
                   </div>
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-slate-100">
                     {topic.title}
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-slate-600 text-slate-400 px-2 py-0.5 rounded-full">
                       {topic.difficulty}
                     </span>
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {topic.estimatedHours}h
                     </span>
@@ -314,17 +314,17 @@ export default function AIExplorerPage() {
           {/* Right: Results */}
           <div className="lg:col-span-2">
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl mb-4">
+              <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-4">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-sm font-semibold text-red-800 mb-1">
                     Generation Failed
                   </div>
-                  <div className="text-sm text-red-700">{error}</div>
+                  <div className="text-sm text-red-400">{error}</div>
                   <button
                     onClick={handleGenerate}
                     disabled={loading}
-                    className="mt-2 text-xs font-medium text-red-600 hover:text-red-700 underline"
+                    className="mt-2 text-xs font-medium text-red-600 hover:text-red-400 underline"
                   >
                     Try again
                   </button>
@@ -333,29 +333,29 @@ export default function AIExplorerPage() {
             )}
 
             {loading && (
-              <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
+              <div className="bg-[#1a2235] border border-slate-700 rounded-xl p-12 text-center">
                 <div
                   className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"
                   style={{ animation: "spin 1s linear infinite" }}
                 />
-                <div className="text-sm font-medium text-gray-700">
+                <div className="text-sm font-medium text-slate-300">
                   AI is generating content...
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   This may take 10–30 seconds
                 </div>
               </div>
             )}
 
             {!loading && !result && !error && (
-              <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="bg-[#1a2235] border border-slate-700 rounded-xl p-12 text-center">
+                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Brain className="w-8 h-8 text-blue-400" />
                 </div>
-                <div className="text-base font-medium text-gray-700 mb-2">
+                <div className="text-base font-medium text-slate-300 mb-2">
                   Ready to Generate
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-slate-400">
                   Select a topic and mode, then click Generate to get AI-powered
                   learning content.
                 </div>
@@ -366,10 +366,10 @@ export default function AIExplorerPage() {
               <>
                 {/* Explanation Result */}
                 {result.type === "explain" && (
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                  <div className="bg-[#1a2235] border border-slate-700 rounded-xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-700/50 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-gray-900">
+                      <span className="font-semibold text-slate-100">
                         Explanation: {topic?.title}
                       </span>
                     </div>
@@ -380,8 +380,8 @@ export default function AIExplorerPage() {
                           <MarkdownBlock text={result.data.explanation || ""} />
                           {Array.isArray(result.data.keyPoints) &&
                             result.data.keyPoints.length > 0 && (
-                              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                                <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">
+                              <div className="bg-blue-500/10 border border-blue-100 rounded-xl p-4">
+                                <div className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3">
                                   Key Points
                                 </div>
                                 <ul className="space-y-2">
@@ -399,15 +399,15 @@ export default function AIExplorerPage() {
                             )}
                           {Array.isArray(result.data.examples) &&
                             result.data.examples.length > 0 && (
-                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-3">
+                              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                                   Examples
                                 </div>
                                 <ul className="space-y-2">
                                   {result.data.examples.map((ex, i) => (
                                     <li
                                       key={i}
-                                      className="text-sm text-gray-700 font-mono bg-white border border-gray-200 rounded-lg px-3 py-2"
+                                      className="text-sm text-slate-300 font-mono bg-[#1a2235] border border-slate-700 rounded-lg px-3 py-2"
                                     >
                                       {ex}
                                     </li>
@@ -432,7 +432,7 @@ export default function AIExplorerPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 px-1">
                       <MessageSquare className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-gray-900">
+                      <span className="font-semibold text-slate-100">
                         {(result.data || []).length} Interview Questions —{" "}
                         {topic?.title}
                       </span>
@@ -440,24 +440,24 @@ export default function AIExplorerPage() {
                     {(result.data || []).map((q, idx) => (
                       <div
                         key={idx}
-                        className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+                        className="bg-[#1a2235] border border-slate-700 rounded-xl overflow-hidden"
                       >
-                        <div className="px-5 py-4 border-b border-gray-100">
+                        <div className="px-5 py-4 border-b border-slate-700/50">
                           <div className="flex items-start justify-between gap-4 mb-2">
-                            <span className="text-sm font-semibold text-gray-900">
+                            <span className="text-sm font-semibold text-slate-100">
                               {idx + 1}. {q.question}
                             </span>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                              <span className="text-xs px-2 py-0.5 bg-slate-700/30 rounded-full text-slate-400">
                                 {q.category}
                               </span>
                               <span
                                 className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                   q.difficulty === "beginner"
-                                    ? "bg-green-50 text-green-700"
+                                    ? "bg-green-500/10 text-green-400"
                                     : q.difficulty === "advanced"
-                                      ? "bg-red-50 text-red-700"
-                                      : "bg-yellow-50 text-yellow-700"
+                                      ? "bg-red-500/10 text-red-400"
+                                      : "bg-yellow-500/10 text-yellow-400"
                                 }`}
                               >
                                 {q.difficulty}
@@ -467,10 +467,10 @@ export default function AIExplorerPage() {
                         </div>
                         <div className="px-5 py-4 space-y-3">
                           <div>
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                               Expected Answer
                             </div>
-                            <div className="text-sm text-gray-700 leading-relaxed">
+                            <div className="text-sm text-slate-300 leading-relaxed">
                               {q.expectedAnswer}
                             </div>
                           </div>
@@ -492,13 +492,13 @@ export default function AIExplorerPage() {
 
                 {/* Study Plan Result */}
                 {result.type === "studyplan" && (
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                  <div className="bg-[#1a2235] border border-slate-700 rounded-xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-700/50 flex items-center gap-2">
                       <Map className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-gray-900">
+                      <span className="font-semibold text-slate-100">
                         Study Plan: {topic?.title}
                       </span>
-                      <span className="ml-auto text-xs text-gray-500">
+                      <span className="ml-auto text-xs text-slate-400">
                         {hoursPerDay}h/day
                       </span>
                     </div>
@@ -512,7 +512,7 @@ export default function AIExplorerPage() {
                 <div className="mt-4 flex gap-3">
                   <a
                     href={`/quiz?topic=${topicId}`}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-400 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:bg-purple-100 transition-colors"
                   >
                     <Brain className="w-4 h-4" /> Take Quiz
                   </a>

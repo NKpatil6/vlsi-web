@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import AppLayout from "@/components/AppLayout";
 import {
   Key,
@@ -29,6 +30,7 @@ import {
   ChevronRight,
   Shield,
 } from "lucide-react";
+import { getSettings, saveSettings, resetAllData, exportAllData } from "@/lib/storage";
 
 // ── Theme tokens ───────────────────────────────────────────────────────────
 const C = {
@@ -433,13 +435,30 @@ function ResetModal({ onConfirm, onCancel, loading }) {
   );
 }
 
+// Gemini models
+const GEMINI_MODELS = {
+  "gemini-2.0-flash": "Gemini 2.0 Flash — Fast, free tier",
+  "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite — Lightweight, free tier",
+  "gemini-1.5-pro": "Gemini 1.5 Pro — High capability",
+};
+
 // ── Main Settings Page ──────────────────────────────────────────────────────
 export default function SettingsPage() {
-  // AI
+  // AI provider
+  const [aiProvider, setAiProvider] = useState("groq"); // "groq" | "gemini"
+
+  // Groq
   const [groqKey, setGroqKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [keySet, setKeySet] = useState(false);
   const [selModel, setSelModel] = useState("llama-3.3-70b-versatile");
+
+  // Gemini
+  const [geminiKey, setGeminiKey] = useState("");
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [geminiKeySet, setGeminiKeySet] = useState(false);
+  const [selGeminiModel, setSelGeminiModel] = useState("gemini-2.0-flash");
+
   const [testingAI, setTestingAI] = useState(false);
   const [aiStatus, setAiStatus] = useState(null); // null | 'ok' | 'err'
   const [aiMsg, setAiMsg] = useState("");
@@ -451,6 +470,11 @@ export default function SettingsPage() {
   const [questaMsg, setQuestaMsg] = useState("");
   const [checkingQ, setCheckingQ] = useState(false);
   const [savingQ, setSavingQ] = useState(false);
+
+  // Vivado
+  const [vivadoPath, setVivadoPath] = useState("");
+  const [savingVivado, setSavingVivado] = useState(false);
+  const [vivadoDetectResult, setVivadoDetectResult] = useState("");
 
   // Session settings
   const [dailyGoal, setDailyGoal] = useState("2");
@@ -465,20 +489,21 @@ export default function SettingsPage() {
 
   // Load settings on mount
   useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          const s = d.settings;
-          if (s.groq_api_key_set === "true") setKeySet(true);
-          if (s.preferred_model) setSelModel(s.preferred_model);
-          if (s.questasim_path) setQuestaPath(s.questasim_path);
-          if (s.daily_study_goal) setDailyGoal(s.daily_study_goal);
-          if (s.session_shift_minutes) setShiftMins(s.session_shift_minutes);
-          if (s.sound_alerts) setSoundAlerts(s.sound_alerts === "true");
-        }
-      })
-      .catch(() => {});
+    try {
+      const s = getSettings();
+      if (s.ai_provider) setAiProvider(s.ai_provider);
+      if (s.groq_api_key) setKeySet(true);
+      if (s.preferred_model) setSelModel(s.preferred_model);
+      if (s.gemini_api_key) setGeminiKeySet(true);
+      if (s.preferred_gemini_model) setSelGeminiModel(s.preferred_gemini_model);
+      if (s.questasim_path) setQuestaPath(s.questasim_path);
+      if (s.vivado_path) setVivadoPath(s.vivado_path);
+      if (s.daily_study_goal) setDailyGoal(String(s.daily_study_goal));
+      if (s.session_shift_minutes) setShiftMins(String(s.session_shift_minutes));
+      if (s.sound_alerts !== undefined) setSoundAlerts(s.sound_alerts);
+    } catch (e) {
+      console.error("Settings load error:", e);
+    }
   }, []);
 
   const showToast = useCallback((msg, type = "ok") => {
@@ -487,24 +512,18 @@ export default function SettingsPage() {
   }, []);
 
   // ── AI handlers ────────────────────────────────────────────────────────────
-  const handleSaveKey = async () => {
-    if (!groqKey.trim() && !selModel) return;
+  const handleSaveKey = () => {
     setSavingKey(true);
     try {
-      const body = { preferred_model: selModel };
-      if (groqKey.trim()) body.groq_api_key = groqKey.trim();
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        if (groqKey.trim()) {
-          setKeySet(true);
-          setGroqKey("");
-        }
-        showToast("AI settings saved!");
-      } else throw new Error("Save failed");
+      const updates = {
+        ai_provider: aiProvider,
+        preferred_model: selModel,
+        preferred_gemini_model: selGeminiModel,
+      };
+      if (groqKey.trim()) { updates.groq_api_key = groqKey.trim(); setKeySet(true); setGroqKey(""); }
+      if (geminiKey.trim()) { updates.gemini_api_key = geminiKey.trim(); setGeminiKeySet(true); setGeminiKey(""); }
+      saveSettings(updates);
+      showToast("AI settings saved!");
     } catch {
       showToast("Failed to save AI settings", "err");
     } finally {
@@ -516,21 +535,12 @@ export default function SettingsPage() {
     setTestingAI(true);
     setAiStatus(null);
     try {
-      const res = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: "Reply with exactly: VLSI_OK",
-          model: selModel,
-        }),
-      });
-      const data = await res.json();
+      const { requestAI } = await import("@/ai/requestAI");
+      const data = await requestAI("Reply with exactly: VLSI_OK", { model: selModel });
       if (data.success) {
         setAiStatus("ok");
-        setAiMsg(
-          `Connected via ${data.model || selModel} (${data.provider || "groq"})`,
-        );
-        showToast("AI connection successful! ✓");
+        setAiMsg(`Connected via ${data.model || selModel}`);
+        showToast("AI connection successful!");
       } else {
         setAiStatus("err");
         setAiMsg(data.error || "Connection failed");
@@ -546,16 +556,11 @@ export default function SettingsPage() {
   };
 
   // ── QuestaSim handlers ─────────────────────────────────────────────────────
-  const handleSaveQuesta = async () => {
+  const handleSaveQuesta = () => {
     setSavingQ(true);
     try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questasim_path: questaPath }),
-      });
-      if (res.ok) showToast("QuestaSim path saved!");
-      else throw new Error();
+      saveSettings({ questasim_path: questaPath });
+      showToast("QuestaSim path saved!");
     } catch {
       showToast("Failed to save QuestaSim path", "err");
     } finally {
@@ -602,18 +607,52 @@ export default function SettingsPage() {
     setCheckingQ(false);
   };
 
+  // ── Vivado handlers ────────────────────────────────────────────────────────
+  const handleSaveVivado = () => {
+    setSavingVivado(true);
+    try {
+      saveSettings({ vivado_path: vivadoPath });
+      showToast("Vivado path saved!");
+    } catch {
+      showToast("Failed to save Vivado path", "err");
+    } finally {
+      setSavingVivado(false);
+    }
+  };
+
+  const handleDetectVivado = async () => {
+    setVivadoDetectResult("");
+    if (typeof window !== "undefined" && window?.electronAPI) {
+      try {
+        const status = await window.electronAPI.checkVivado();
+        if (status?.available) {
+          setVivadoPath(status.path || vivadoPath);
+          setVivadoDetectResult(`Found: ${status.version || "Vivado"} at ${status.path}`);
+          saveSettings({ vivado_path: status.path });
+          showToast("Vivado detected!");
+        } else {
+          setVivadoDetectResult("Vivado not found. Enter path manually.");
+        }
+      } catch (e) {
+        setVivadoDetectResult("Detection failed: " + (e.message || "Unknown error"));
+      }
+    } else {
+      if (vivadoPath.trim()) {
+        setVivadoDetectResult("Path saved. Will be used when running as EXE.");
+      } else {
+        setVivadoDetectResult("Enter the path to Vivado bin directory first.");
+      }
+    }
+  };
+
   // ── Session settings save ──────────────────────────────────────────────────
-  const handleSaveSession = async () => {
+  const handleSaveSession = () => {
     setSavingSession(true);
     try {
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          daily_study_goal: dailyGoal,
-          session_shift_minutes: shiftMins,
-          sound_alerts: String(soundAlerts),
-        }),
+      saveSettings({
+        daily_study_goal: dailyGoal,
+        session_shift_minutes: shiftMins,
+        sound_alerts: soundAlerts,
       });
       showToast("Session settings saved!");
     } catch {
@@ -624,18 +663,13 @@ export default function SettingsPage() {
   };
 
   // ── Data reset ─────────────────────────────────────────────────────────────
-  const handleReset = async () => {
+  const handleReset = () => {
     setResetting(true);
     try {
-      const res = await fetch("/api/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "RESET_ALL_DATA" }),
-      });
-      if (!res.ok) throw new Error("Reset failed");
+      resetAllData();
       setShowReset(false);
       showToast("All data cleared. Reloading...");
-      setTimeout(() => (window.location.href = "/dashboard"), 1500);
+      setTimeout(() => window.location.hash = "#/dashboard", 1500);
     } catch {
       showToast("Reset failed", "err");
     } finally {
@@ -644,28 +678,10 @@ export default function SettingsPage() {
   };
 
   // ── Export JSON ────────────────────────────────────────────────────────────
-  const handleExport = async () => {
+  const handleExport = () => {
     try {
-      const [sessions, progress, analytics] = await Promise.all([
-        fetch("/api/sessions").then((r) => r.json()),
-        fetch("/api/progress").then((r) => r.json()),
-        fetch("/api/analytics").then((r) => r.json()),
-      ]);
-      const blob = new Blob(
-        [
-          JSON.stringify(
-            {
-              sessions,
-              progress,
-              analytics,
-              exportedAt: new Date().toISOString(),
-            },
-            null,
-            2,
-          ),
-        ],
-        { type: "application/json" },
-      );
+      const data = exportAllData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -748,71 +764,43 @@ export default function SettingsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {/* ── 1. AI Configuration ──────────────────────────────────────── */}
           <GlassCard>
-            <SectionHeader
-              icon={Key}
-              title="AI Configuration"
-              accent={C.cyan}
-            />
+            <SectionHeader icon={Key} title="AI Configuration" accent={C.cyan} />
 
-            {/* Status */}
-            <div
-              style={{
-                ...rowStyle,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-              }}
-            >
-              <div>
-                <div style={labelStyle}>Groq API Connection</div>
-                <div style={hintStyle}>
-                  AI features use Groq's LPU inference. Keys are stored
-                  server-side only.
-                </div>
+            {/* Provider selector */}
+            <div style={rowStyle}>
+              <div style={labelStyle}>AI Provider</div>
+              <div style={hintStyle}>Select which AI service powers all generation features.</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[["groq", "Groq (Llama)"], ["gemini", "Gemini (Google)"]].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setAiProvider(val)}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 8,
+                      border: `1px solid ${aiProvider === val ? C.cyan : C.border}`,
+                      background: aiProvider === val ? "rgba(125,211,252,0.12)" : "rgba(15,23,42,0.5)",
+                      color: aiProvider === val ? C.cyan : C.textSec,
+                      fontSize: 13,
+                      fontWeight: aiProvider === val ? 600 : 400,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              <StatusBadge
-                checking={testingAI}
-                ok={aiStatus === "ok"}
-                label={
-                  testingAI
-                    ? "Testing..."
-                    : aiStatus === "ok"
-                      ? "Connected"
-                      : aiStatus === "err"
-                        ? "Error"
-                        : keySet
-                          ? "Key saved"
-                          : "Not configured"
-                }
-              />
             </div>
 
-            {/* Groq API Key input */}
+            {/* ── Groq section ── */}
             <div style={rowStyle}>
               <div style={labelStyle}>
                 Groq API Key
-                {keySet && !groqKey && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 11,
-                      color: C.green,
-                      fontWeight: 600,
-                    }}
-                  >
-                    ● Saved
-                  </span>
-                )}
+                {keySet && !groqKey && <span style={{ marginLeft: 8, fontSize: 11, color: C.green, fontWeight: 600 }}>● Saved</span>}
               </div>
               <div style={hintStyle}>
-                Get your free key at{" "}
-                <a
-                  href="https://console.groq.com/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: C.cyan, textDecoration: "none" }}
-                >
+                Free key at{" "}
+                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
                   console.groq.com/keys →
                 </a>
               </div>
@@ -822,122 +810,80 @@ export default function SettingsPage() {
                     type={showKey ? "text" : "password"}
                     value={groqKey}
                     onChange={(e) => setGroqKey(e.target.value)}
-                    placeholder={
-                      keySet
-                        ? "Enter new key to replace existing..."
-                        : "gsk_..."
-                    }
+                    placeholder={keySet ? "Enter new key to replace..." : "gsk_..."}
                     autoComplete="off"
-                    style={{
-                      width: "100%",
-                      padding: "9px 38px 9px 13px",
-                      borderRadius: 9,
-                      boxSizing: "border-box",
-                      background: "rgba(15,23,42,0.7)",
-                      border: `1px solid ${C.border}`,
-                      color: C.textPri,
-                      fontSize: 13,
-                      fontFamily: "'JetBrains Mono',monospace",
-                      outline: "none",
-                    }}
+                    style={{ width: "100%", padding: "9px 38px 9px 13px", borderRadius: 9, boxSizing: "border-box", background: "rgba(15,23,42,0.7)", border: `1px solid ${C.border}`, color: C.textPri, fontSize: 13, fontFamily: "'JetBrains Mono',monospace", outline: "none" }}
                     onFocus={(e) => (e.target.style.borderColor = C.borderHi)}
                     onBlur={(e) => (e.target.style.borderColor = C.border)}
                   />
-                  <button
-                    onClick={() => setShowKey((s) => !s)}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: C.textMut,
-                      display: "flex",
-                    }}
-                  >
+                  <button onClick={() => setShowKey((s) => !s)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: C.textMut, display: "flex" }}>
                     {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-                <Pill
-                  onClick={handleSaveKey}
-                  disabled={savingKey || (!groqKey.trim() && !selModel)}
-                >
-                  {savingKey ? (
-                    <RefreshCw
-                      size={13}
-                      style={{ animation: "spin 1s linear infinite" }}
-                    />
-                  ) : (
-                    <Save size={13} />
-                  )}
+                <Pill onClick={handleSaveKey} disabled={savingKey}>
+                  {savingKey ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
                   Save
                 </Pill>
-                <Pill
-                  onClick={handleTestAI}
-                  disabled={testingAI}
-                  color={C.indigo}
-                >
-                  {testingAI ? (
-                    <RefreshCw
-                      size={13}
-                      style={{ animation: "spin 1s linear infinite" }}
-                    />
-                  ) : (
-                    <Zap size={13} />
-                  )}
+                <Pill onClick={handleTestAI} disabled={testingAI} color={C.indigo}>
+                  {testingAI ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={13} />}
                   Test
                 </Pill>
               </div>
-              {aiMsg && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: aiStatus === "ok" ? C.green : C.red,
-                    marginTop: 2,
-                  }}
-                >
-                  {aiMsg}
-                </div>
-              )}
+              {aiMsg && <div style={{ fontSize: 12, color: aiStatus === "ok" ? C.green : C.red, marginTop: 2 }}>{aiMsg}</div>}
             </div>
 
-            {/* Model selector */}
+            {/* Groq model */}
             <div style={rowStyle}>
-              <div style={labelStyle}>Preferred AI Model</div>
-              <DarkSelect
-                value={selModel}
-                onChange={(v) => setSelModel(v)}
-                options={Object.entries(AI_MODELS)}
-              />
+              <div style={labelStyle}>Groq Model</div>
+              <DarkSelect value={selModel} onChange={(v) => setSelModel(v)} options={Object.entries(AI_MODELS)} />
+            </div>
+
+            {/* ── Gemini section ── */}
+            <div style={rowStyle}>
+              <div style={labelStyle}>
+                Gemini API Key
+                {geminiKeySet && !geminiKey && <span style={{ marginLeft: 8, fontSize: 11, color: C.green, fontWeight: 600 }}>● Saved</span>}
+              </div>
               <div style={hintStyle}>
-                {selModel === "llama-3.3-70b-versatile" &&
-                  "Best overall — fast, capable, great for all VLSI tasks"}
-                {selModel === "llama-3.1-8b-instant" &&
-                  "Ultra-fast, lightweight — good for quick quizzes and hints"}
-                {selModel === "mixtral-8x7b-32768" &&
-                  "Large 32K context window — ideal for complex reasoning"}
+                Free key at{" "}
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
+                  aistudio.google.com/app/apikey →
+                </a>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ flex: 1, position: "relative" }}>
+                  <input
+                    type={showGeminiKey ? "text" : "password"}
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder={geminiKeySet ? "Enter new key to replace..." : "AIza..."}
+                    autoComplete="off"
+                    style={{ width: "100%", padding: "9px 38px 9px 13px", borderRadius: 9, boxSizing: "border-box", background: "rgba(15,23,42,0.7)", border: `1px solid ${C.border}`, color: C.textPri, fontSize: 13, fontFamily: "'JetBrains Mono',monospace", outline: "none" }}
+                    onFocus={(e) => (e.target.style.borderColor = C.borderHi)}
+                    onBlur={(e) => (e.target.style.borderColor = C.border)}
+                  />
+                  <button onClick={() => setShowGeminiKey((s) => !s)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: C.textMut, display: "flex" }}>
+                    {showGeminiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <Pill onClick={handleSaveKey} disabled={savingKey}>
+                  {savingKey ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
+                  Save
+                </Pill>
               </div>
             </div>
 
-            {/* Save model */}
-            <div
-              style={{
-                padding: "10px 22px",
-                borderBottom: `1px solid ${C.border}`,
-              }}
-            >
+            {/* Gemini model */}
+            <div style={rowStyle}>
+              <div style={labelStyle}>Gemini Model</div>
+              <DarkSelect value={selGeminiModel} onChange={(v) => setSelGeminiModel(v)} options={Object.entries(GEMINI_MODELS)} />
+            </div>
+
+            {/* Save all */}
+            <div style={{ padding: "10px 22px", borderBottom: `1px solid ${C.border}` }}>
               <Pill onClick={handleSaveKey} disabled={savingKey}>
-                {savingKey ? (
-                  <RefreshCw
-                    size={13}
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                ) : (
-                  <Save size={13} />
-                )}
-                Save Model Preference
+                {savingKey ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
+                Save All AI Settings
               </Pill>
             </div>
           </GlassCard>
@@ -1073,6 +1019,117 @@ export default function SettingsPage() {
                   directly in QuestaSim. Testbench generation and Tcl scripts
                   work in both web and EXE modes.
                 </div>
+              </div>
+            </div>
+          </GlassCard>
+
+          {/* ── 2b. Vivado Configuration ──────────────────────────────────── */}
+          <GlassCard>
+            <SectionHeader
+              icon={Cpu}
+              title="Vivado Configuration"
+              accent={C.cyan}
+            />
+
+            <div style={rowStyle}>
+              <div style={labelStyle}>Vivado Installation Path</div>
+              <div style={hintStyle}>
+                Path to Vivado bin directory (e.g., C:\Xilinx\Vivado\2024.1\bin)
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <DarkInput
+                  value={vivadoPath}
+                  onChange={setVivadoPath}
+                  placeholder="C:\Xilinx\Vivado\2024.1\bin"
+                  style={{ flex: 1 }}
+                />
+                <Pill onClick={handleSaveVivado} disabled={savingVivado} color={C.cyan}>
+                  {savingVivado ? "Saving..." : "Save"}
+                </Pill>
+              </div>
+            </div>
+
+            <div style={rowStyle}>
+              <div style={labelStyle}>Quick Detect</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Pill onClick={handleDetectVivado} color={C.green}>
+                  <Terminal size={13} /> Auto-detect Vivado
+                </Pill>
+              </div>
+              {vivadoDetectResult && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    color: vivadoDetectResult.includes("Found") ? C.green : C.amber,
+                    padding: "6px 10px",
+                    background: C.activeBg,
+                    borderRadius: 6,
+                  }}
+                >
+                  {vivadoDetectResult}
+                </div>
+              )}
+            </div>
+
+            <div style={rowStyle}>
+              <div style={labelStyle}>Common Paths</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {[
+                  "C:\\Xilinx\\Vivado\\2024.1\\bin",
+                  "C:\\Xilinx\\Vivado\\2023.2\\bin",
+                  "C:\\Xilinx\\Vivado\\2023.1\\bin",
+                ].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setVivadoPath(p)}
+                    style={{
+                      textAlign: "left",
+                      fontSize: 12,
+                      fontFamily: "monospace",
+                      color: C.textSec,
+                      background: "#0f172a",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                      cursor: "pointer",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = C.cyan)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: 8,
+                padding: "10px 14px",
+                background: C.activeBg,
+                borderRadius: 8,
+                border: `1px solid ${C.border}`,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 4,
+                }}
+              >
+                <Info size={13} color={C.cyan} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.cyan }}>
+                  Vivado RTL Simulation
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.6 }}>
+                The Coding page uses Vivado for RTL design simulation (xvlog → xelab → xsim pipeline).
+                Waveform VCD files are generated for analysis. If Vivado is not installed,
+                the app falls back to EDA Playground cloud simulation.
               </div>
             </div>
           </GlassCard>
@@ -1234,15 +1291,15 @@ export default function SettingsPage() {
               }}
             >
               {[
-                { label: "Dashboard", href: "/dashboard" },
-                { label: "Syllabus", href: "/syllabus" },
-                { label: "Sessions", href: "/sessions" },
-                { label: "AI Explorer", href: "/ai-explorer" },
-                { label: "Quiz", href: "/quiz" },
-                { label: "Flashcards", href: "/flashcards" },
-                { label: "Coding", href: "/coding" },
-                { label: "Analytics", href: "/analytics" },
-                { label: "Achievements", href: "/achievements" },
+                { label: "Dashboard", href: "#/dashboard" },
+                { label: "Syllabus", href: "#/syllabus" },
+                { label: "Sessions", href: "#/sessions" },
+                { label: "AI Explorer", href: "#/ai-explorer" },
+                { label: "Quiz", href: "#/quiz" },
+                { label: "Flashcards", href: "#/flashcards" },
+                { label: "Coding", href: "#/coding" },
+                { label: "Analytics", href: "#/analytics" },
+                { label: "Achievements", href: "#/achievements" },
               ].map((item) => (
                 <a
                   key={item.href}
@@ -1316,9 +1373,8 @@ export default function SettingsPage() {
             >
               {[
                 ["Application", "VLSI Interview Tracker"],
-                ["AI Provider", "Groq (Llama 3.3 70B)"],
-                ["Fallback AI", "Anthropic Claude Opus 4.1"],
-                ["Simulation", "QuestaSim / ModelSim"],
+                ["AI Providers", "Groq (Llama) · Gemini (Google)"],
+                ["Simulation", "Vivado · QuestaSim · EDA Playground"],
                 ["Design Topics", "14 (Number Systems → Timing)"],
                 ["Verification Topics", "6 (Fundamentals → UVM)"],
                 ["Platform", "Web + Windows EXE (Electron)"],

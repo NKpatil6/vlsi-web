@@ -31,39 +31,41 @@ export default class ErrorBoundary extends Component {
       const { fallbackLabel = "This module", onReset } = this.props;
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-64 p-8 bg-white rounded-xl border border-red-200">
-          <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mb-4">
-            <AlertTriangle className="w-7 h-7 text-red-500" />
-          </div>
-          <h3 className="text-base font-semibold text-gray-900 mb-2">
-            {fallbackLabel} encountered an error
-          </h3>
-          <p className="text-sm text-gray-500 text-center max-w-sm mb-1">
-            Something went wrong loading this section. This could be a temporary
-            issue.
-          </p>
-          {this.state.error && (
-            <p className="text-xs font-mono text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-5 max-w-sm text-center break-all">
-              {this.state.error.message || "Unknown error"}
+        <div className="flex items-center justify-center min-h-64 p-8 bg-[#0f172a]">
+          <div className="flex flex-col items-center justify-center w-full max-w-lg p-8 bg-[#1e293b] rounded-xl border border-red-500/30">
+            <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+              <AlertTriangle className="w-7 h-7 text-red-500" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-100 mb-2">
+              {fallbackLabel} encountered an error
+            </h3>
+            <p className="text-sm text-slate-400 text-center max-w-sm mb-1">
+              Something went wrong loading this section. This could be a
+              temporary issue.
             </p>
-          )}
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                this.handleReset();
-                if (onReset) onReset();
-              }}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Try Again
-            </button>
-            <button
-              onClick={() => (window.location.href = "/dashboard")}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Go to Dashboard
-            </button>
+            {this.state.error && (
+              <p className="text-xs font-mono text-red-400 bg-red-500/10 px-3 py-2 rounded-lg mb-5 max-w-sm text-center break-all">
+                {this.state.error.message || "Unknown error"}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  this.handleReset();
+                  if (onReset) onReset();
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Try Again
+              </button>
+              <button
+                onClick={() => (window.location.hash = "#/dashboard")}
+                className="px-4 py-2 text-sm font-medium text-slate-300 bg-[#1e293b] border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       );
