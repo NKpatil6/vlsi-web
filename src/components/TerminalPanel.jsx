@@ -13,6 +13,7 @@ export default function TerminalPanel({
   logs = "",
   compileLog = "",
   simulationLog = "",
+  runtimeLog = "",
   passFail = null, // "pass" | "fail" | null
   waveformStatus = null, // { generated: boolean, path?: string }
   visible = true,
@@ -26,21 +27,24 @@ export default function TerminalPanel({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs, compileLog, simulationLog]);
+  }, [logs, compileLog, simulationLog, runtimeLog]);
 
-  const hasContent = logs || compileLog || simulationLog;
+  const hasContent = logs || compileLog || simulationLog || runtimeLog;
 
   let displayContent = "";
   if (activeTab === "all") {
     const parts = [];
     if (compileLog) parts.push("[Compile]\n" + compileLog);
     if (simulationLog) parts.push("[Simulation]\n" + simulationLog);
+    if (runtimeLog) parts.push("[Runtime Log]\n" + runtimeLog);
     if (!parts.length && logs) parts.push(logs);
     displayContent = parts.join("\n\n");
   } else if (activeTab === "compile") {
     displayContent = compileLog || "(No compile output)";
   } else if (activeTab === "simulate") {
     displayContent = simulationLog || "(No simulation output)";
+  } else if (activeTab === "runtime") {
+    displayContent = runtimeLog || "(No runtime output)";
   }
 
   if (!visible) return null;
@@ -107,6 +111,7 @@ export default function TerminalPanel({
               { key: "all", label: "All" },
               { key: "compile", label: "Compile" },
               { key: "simulate", label: "Simulation" },
+              { key: "runtime", label: "Runtime Log" },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -129,7 +134,7 @@ export default function TerminalPanel({
             style={{ maxHeight: 320, minHeight: 120 }}
           >
             {hasContent ? (
-              <pre className="text-green-300 whitespace-pre-wrap break-all">
+              <pre className="text-green-300 whitespace-pre">
                 {displayContent}
               </pre>
             ) : (

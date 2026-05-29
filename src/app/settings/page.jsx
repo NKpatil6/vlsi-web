@@ -31,6 +31,7 @@ import {
   Shield,
 } from "lucide-react";
 import { getSettings, saveSettings, resetAllData, exportAllData } from "@/lib/storage";
+import { AVAILABLE_MODELS, AI_PROVIDERS, formatModelLabel } from "@/ai/requestAI";
 
 // ── Theme tokens ───────────────────────────────────────────────────────────
 const C = {
@@ -49,13 +50,11 @@ const C = {
   rose: "#fb7185",
 };
 
-// Groq models (matches original GitHub project's AI_MODELS + MODEL_DISPLAY_NAMES)
-const AI_MODELS = {
-  "llama-3.3-70b-versatile": "Llama 3.3 70B Versatile — Best overall (Free)",
-  "llama-3.1-8b-instant":
-    "Llama 3.1 8B Instant — Ultra-fast, lightweight (Free)",
-  "mixtral-8x7b-32768": "Mixtral 8x7B 32K — Large context window (Free)",
-};
+function buildModelOptions(provider) {
+  return AVAILABLE_MODELS
+    .filter((m) => m.provider === provider)
+    .map((m) => [`${m.provider}:${m.id}`, formatModelLabel(m)]);
+}
 
 // ── Glass card wrapper ──────────────────────────────────────────────────────
 function GlassCard({ children, style = {} }) {
@@ -435,29 +434,14 @@ function ResetModal({ onConfirm, onCancel, loading }) {
   );
 }
 
-// Gemini models
-const GEMINI_MODELS = {
-  "gemini-2.0-flash": "Gemini 2.0 Flash — Fast, free tier",
-  "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite — Lightweight, free tier",
-  "gemini-1.5-pro": "Gemini 1.5 Pro — High capability",
-};
-
 // ── Main Settings Page ──────────────────────────────────────────────────────
 export default function SettingsPage() {
   // AI provider
-  const [aiProvider, setAiProvider] = useState("groq"); // "groq" | "gemini"
-
-  // Groq
-  const [groqKey, setGroqKey] = useState("");
+  const [aiProvider, setAiProvider] = useState(AI_PROVIDERS.GROQ); // "groq" | "gemini"
+  const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [keySet, setKeySet] = useState(false);
-  const [selModel, setSelModel] = useState("llama-3.3-70b-versatile");
-
-  // Gemini
-  const [geminiKey, setGeminiKey] = useState("");
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [geminiKeySet, setGeminiKeySet] = useState(false);
-  const [selGeminiModel, setSelGeminiModel] = useState("gemini-2.0-flash");
+  const [activeModelKey, setActiveModelKey] = useState(`${AI_PROVIDERS.GROQ}:llama-3.3-70b-versatile`);
 
   const [testingAI, setTestingAI] = useState(false);
   const [aiStatus, setAiStatus] = useState(null); // null | 'ok' | 'err'
@@ -492,10 +476,15 @@ export default function SettingsPage() {
     try {
       const s = getSettings();
       if (s.ai_provider) setAiProvider(s.ai_provider);
-      if (s.groq_api_key) setKeySet(true);
-      if (s.preferred_model) setSelModel(s.preferred_model);
-      if (s.gemini_api_key) setGeminiKeySet(true);
-      if (s.preferred_gemini_model) setSelGeminiModel(s.preferred_gemini_model);
+      if (s.ai_active_model?.provider && s.ai_active_model?.id) {
+        setActiveModelKey(`${s.ai_active_model.provider}:${s.ai_active_model.id}`);
+      } else if (s.ai_provider === AI_PROVIDERS.GEMINI && s.preferred_gemini_model) {
+        setActiveModelKey(`${AI_PROVIDERS.GEMINI}:${s.preferred_gemini_model}`);
+      } else if (s.preferred_model) {
+        setActiveModelKey(`${AI_PROVIDERS.GROQ}:${s.preferred_model}`);
+      }
+      const providerKey = s.ai_provider === AI_PROVIDERS.GEMINI ? s.gemini_api_key : s.groq_api_key;
+      if (providerKey) setKeySet(true);
       if (s.questasim_path) setQuestaPath(s.questasim_path);
       if (s.vivado_path) setVivadoPath(s.vivado_path);
       if (s.daily_study_goal) setDailyGoal(String(s.daily_study_goal));
@@ -515,13 +504,22 @@ export default function SettingsPage() {
   const handleSaveKey = () => {
     setSavingKey(true);
     try {
+      const [modelProvider, modelId] = String(activeModelKey || "").split(":");
+      const m = AVAILABLE_MODELS.find((x) => x.provider === modelProvider && x.id === modelId);
       const updates = {
         ai_provider: aiProvider,
-        preferred_model: selModel,
-        preferred_gemini_model: selGeminiModel,
+        ai_active_model: m ? { provider: m.provider, id: m.id, name: m.name } : undefined,
+        // Backwards-compat keys (used by older code paths)
+        preferred_model: modelProvider === AI_PROVIDERS.GROQ ? modelId : "llama-3.3-70b-versatile",
+        preferred_gemini_model: modelProvider === AI_PROVIDERS.GEMINI ? modelId : "gemini-2.5-flash",
       };
-      if (groqKey.trim()) { updates.groq_api_key = groqKey.trim(); setKeySet(true); setGroqKey(""); }
-      if (geminiKey.trim()) { updates.gemini_api_key = geminiKey.trim(); setGeminiKeySet(true); setGeminiKey(""); }
+
+      if (apiKey.trim()) {
+        if (aiProvider === AI_PROVIDERS.GEMINI) updates.gemini_api_key = apiKey.trim();
+        else updates.groq_api_key = apiKey.trim();
+        setKeySet(true);
+        setApiKey("");
+      }
       saveSettings(updates);
       showToast("AI settings saved!");
     } catch {
@@ -536,10 +534,11 @@ export default function SettingsPage() {
     setAiStatus(null);
     try {
       const { requestAI } = await import("@/ai/requestAI");
-      const data = await requestAI("Reply with exactly: VLSI_OK", { model: selModel });
+      const [, modelId] = String(activeModelKey || "").split(":");
+      const data = await requestAI("Reply with exactly: VLSI_OK", { provider: aiProvider, model: modelId });
       if (data.success) {
         setAiStatus("ok");
-        setAiMsg(`Connected via ${data.model || selModel}`);
+        setAiMsg(`Connected via ${data.model || modelId}`);
         showToast("AI connection successful!");
       } else {
         setAiStatus("err");
@@ -771,10 +770,10 @@ export default function SettingsPage() {
               <div style={labelStyle}>AI Provider</div>
               <div style={hintStyle}>Select which AI service powers all generation features.</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {[["groq", "Groq (Llama)"], ["gemini", "Gemini (Google)"]].map(([val, label]) => (
+                {[[AI_PROVIDERS.GROQ, "Groq"], [AI_PROVIDERS.GEMINI, "Google (Gemini)"]].map(([val, label]) => (
                   <button
                     key={val}
-                    onClick={() => setAiProvider(val)}
+                    onClick={() => { setAiProvider(val); setKeySet(false); setApiKey(""); }}
                     style={{
                       padding: "7px 16px",
                       borderRadius: 8,
@@ -792,25 +791,33 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* ── Groq section ── */}
             <div style={rowStyle}>
               <div style={labelStyle}>
-                Groq API Key
-                {keySet && !groqKey && <span style={{ marginLeft: 8, fontSize: 11, color: C.green, fontWeight: 600 }}>● Saved</span>}
+                API Key
+                {keySet && !apiKey && <span style={{ marginLeft: 8, fontSize: 11, color: C.green, fontWeight: 600 }}>● Saved</span>}
               </div>
               <div style={hintStyle}>
-                Free key at{" "}
-                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
-                  console.groq.com/keys →
-                </a>
+                {aiProvider === AI_PROVIDERS.GROQ ? (
+                  <>Free key at{" "}
+                    <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
+                      console.groq.com/keys →
+                    </a>
+                  </>
+                ) : (
+                  <>Free key at{" "}
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
+                      aistudio.google.com/app/apikey →
+                    </a>
+                  </>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ flex: 1, position: "relative" }}>
                   <input
                     type={showKey ? "text" : "password"}
-                    value={groqKey}
-                    onChange={(e) => setGroqKey(e.target.value)}
-                    placeholder={keySet ? "Enter new key to replace..." : "gsk_..."}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={keySet ? "Enter new key to replace..." : (aiProvider === AI_PROVIDERS.GROQ ? "gsk_..." : "AIza...")}
                     autoComplete="off"
                     style={{ width: "100%", padding: "9px 38px 9px 13px", borderRadius: 9, boxSizing: "border-box", background: "rgba(15,23,42,0.7)", border: `1px solid ${C.border}`, color: C.textPri, fontSize: 13, fontFamily: "'JetBrains Mono',monospace", outline: "none" }}
                     onFocus={(e) => (e.target.style.borderColor = C.borderHi)}
@@ -832,51 +839,14 @@ export default function SettingsPage() {
               {aiMsg && <div style={{ fontSize: 12, color: aiStatus === "ok" ? C.green : C.red, marginTop: 2 }}>{aiMsg}</div>}
             </div>
 
-            {/* Groq model */}
             <div style={rowStyle}>
-              <div style={labelStyle}>Groq Model</div>
-              <DarkSelect value={selModel} onChange={(v) => setSelModel(v)} options={Object.entries(AI_MODELS)} />
-            </div>
-
-            {/* ── Gemini section ── */}
-            <div style={rowStyle}>
-              <div style={labelStyle}>
-                Gemini API Key
-                {geminiKeySet && !geminiKey && <span style={{ marginLeft: 8, fontSize: 11, color: C.green, fontWeight: 600 }}>● Saved</span>}
-              </div>
-              <div style={hintStyle}>
-                Free key at{" "}
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: C.cyan, textDecoration: "none" }}>
-                  aistudio.google.com/app/apikey →
-                </a>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <input
-                    type={showGeminiKey ? "text" : "password"}
-                    value={geminiKey}
-                    onChange={(e) => setGeminiKey(e.target.value)}
-                    placeholder={geminiKeySet ? "Enter new key to replace..." : "AIza..."}
-                    autoComplete="off"
-                    style={{ width: "100%", padding: "9px 38px 9px 13px", borderRadius: 9, boxSizing: "border-box", background: "rgba(15,23,42,0.7)", border: `1px solid ${C.border}`, color: C.textPri, fontSize: 13, fontFamily: "'JetBrains Mono',monospace", outline: "none" }}
-                    onFocus={(e) => (e.target.style.borderColor = C.borderHi)}
-                    onBlur={(e) => (e.target.style.borderColor = C.border)}
-                  />
-                  <button onClick={() => setShowGeminiKey((s) => !s)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: C.textMut, display: "flex" }}>
-                    {showGeminiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                <Pill onClick={handleSaveKey} disabled={savingKey}>
-                  {savingKey ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Save size={13} />}
-                  Save
-                </Pill>
-              </div>
-            </div>
-
-            {/* Gemini model */}
-            <div style={rowStyle}>
-              <div style={labelStyle}>Gemini Model</div>
-              <DarkSelect value={selGeminiModel} onChange={(v) => setSelGeminiModel(v)} options={Object.entries(GEMINI_MODELS)} />
+              <div style={labelStyle}>Available Models</div>
+              <div style={hintStyle}>Models update based on the selected provider.</div>
+              <DarkSelect
+                value={activeModelKey}
+                onChange={(v) => setActiveModelKey(v)}
+                options={buildModelOptions(aiProvider)}
+              />
             </div>
 
             {/* Save all */}

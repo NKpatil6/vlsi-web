@@ -7,24 +7,29 @@ import {
 } from "./validators";
 import { requestGemini } from "./geminiProvider";
 
-// ─── MODEL REGISTRY ──────────────────────────────────────────────────────────
-export const AI_MODELS = {
-  LLAMA_70B: "llama-3.3-70b-versatile",
-  LLAMA_8B: "llama-3.1-8b-instant",
-  MIXTRAL: "mixtral-8x7b-32768",
-};
-export const DEFAULT_MODEL = AI_MODELS.LLAMA_70B;
-export const MODEL_DISPLAY_NAMES = {
-  [AI_MODELS.LLAMA_70B]: "Llama 3.3 70B Versatile (Groq — Free)",
-  [AI_MODELS.LLAMA_8B]: "Llama 3.1 8B Instant (Groq — Free)",
-  [AI_MODELS.MIXTRAL]: "Mixtral 8x7B 32K (Groq — Free)",
-};
-
 // ─── AI Providers ─────────────────────────────────────────────────────────────
 export const AI_PROVIDERS = {
   GROQ: "groq",
   GEMINI: "gemini",
 };
+
+// ─── Unified Model Registry (provider-agnostic) ───────────────────────────────
+export const AVAILABLE_MODELS = [
+  // Groq (free-tier friendly)
+  { provider: AI_PROVIDERS.GROQ, id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },
+  { provider: AI_PROVIDERS.GROQ, id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant" },
+  { provider: AI_PROVIDERS.GROQ, id: "mixtral-8x7b-32768", name: "Mixtral 8x7B 32K" },
+  // Google (Gemini)
+  { provider: AI_PROVIDERS.GEMINI, id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+  { provider: AI_PROVIDERS.GEMINI, id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+];
+
+export const DEFAULT_MODEL = { provider: AI_PROVIDERS.GROQ, id: "llama-3.3-70b-versatile" };
+
+export function formatModelLabel(m) {
+  const providerLabel = m.provider === AI_PROVIDERS.GEMINI ? "Google" : "Groq";
+  return `${m.name} (${providerLabel})`;
+}
 
 /** Read the active provider from settings (defaults to groq). */
 function getActiveProvider() {
@@ -33,6 +38,22 @@ function getActiveProvider() {
     return s.ai_provider || AI_PROVIDERS.GROQ;
   } catch {
     return AI_PROVIDERS.GROQ;
+  }
+}
+
+function getActiveModelFromSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem("vlsi_settings") || "{}");
+    if (s.ai_active_model && s.ai_active_model.provider && s.ai_active_model.id) {
+      return { provider: s.ai_active_model.provider, id: s.ai_active_model.id };
+    }
+    const provider = s.ai_provider || AI_PROVIDERS.GROQ;
+    if (provider === AI_PROVIDERS.GEMINI) {
+      return { provider, id: s.preferred_gemini_model || "gemini-2.5-flash" };
+    }
+    return { provider, id: s.preferred_model || DEFAULT_MODEL.id };
+  } catch {
+    return DEFAULT_MODEL;
   }
 }
 
@@ -64,7 +85,7 @@ const TIMEOUT_MS = 60000;
  */
 export async function requestAI(prompt, options = {}) {
   const {
-    model = DEFAULT_MODEL,
+    model,
     persona = "standard",
     maxTokens = 4000,
     temperature = 0.7,
@@ -76,13 +97,19 @@ export async function requestAI(prompt, options = {}) {
 
   // ── Route to Gemini if selected ──────────────────────────────────────────
   const provider = options.provider || getActiveProvider();
+  const active = getActiveModelFromSettings();
+  const effectiveModelId =
+    typeof model === "string"
+      ? model
+      : (provider === active.provider ? active.id : (provider === AI_PROVIDERS.GEMINI ? "gemini-2.5-flash" : DEFAULT_MODEL.id));
+
   if (provider === AI_PROVIDERS.GEMINI) {
     return requestGemini(prompt, {
       systemPrompt: personaConfig.systemPrompt,
       maxTokens,
       temperature,
       retries,
-      model: options.geminiModel,
+      model: effectiveModelId,
     });
   }
 
@@ -115,7 +142,7 @@ export async function requestAI(prompt, options = {}) {
               "Authorization": `Bearer ${groqKey}`,
             },
             body: JSON.stringify({
-              model,
+              model: effectiveModelId,
               messages: [
                 { role: "system", content: personaConfig.systemPrompt },
                 { role: "user", content: prompt },
@@ -156,7 +183,7 @@ export async function requestAI(prompt, options = {}) {
           success: true,
           content,
           provider: "groq",
-          model: data.model || model,
+          model: data.model || effectiveModelId,
         };
       } catch (err) {
         if (err.name === "AbortError") break;

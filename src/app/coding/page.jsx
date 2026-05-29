@@ -16,10 +16,12 @@ import { resolveEffectiveTool } from "@/services/simulatorManager";
 import {
   checkQuestasimStatus,
   runInQuestasim,
-  generateTestbench,
+  generateTestbench as generateLegacyTestbench,
   generateTclScript,
   getSimulationCommands,
 } from "@/services/questasimService";
+import { extractPorts } from "@/services/portExtractor";
+import { generateTestbench as generatePortBasedTestbench } from "@/services/testbenchGenerator";
 import TerminalPanel from "@/components/TerminalPanel";
 import {
   Code2, Play, AlertCircle, Zap, CheckCircle2, RefreshCw,
@@ -73,11 +75,16 @@ function CodingToolbar({
 }) {
   const btn = "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed";
   const disabled = !problem || !userCode;
+  const wrap = (fn) => (e) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    fn?.();
+  };
 
   return (
     <div data-testid="coding-toolbar" className="flex flex-wrap items-center gap-2 px-4 py-3 bg-slate-800/60 border border-slate-700 rounded-xl mb-4">
       {/* Run */}
-      <button onClick={onRun} disabled={disabled || running}
+      <button onClick={wrap(onRun)} disabled={disabled || running}
         className={`${btn} bg-green-600/20 border-green-500/30 text-green-400 hover:bg-green-600/30`} title="Static syntax check">
         {running ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
         Run
@@ -85,7 +92,7 @@ function CodingToolbar({
 
       {/* Simulate (local) */}
       {effectiveTool !== "eda" && (
-        <button onClick={onSimulate} disabled={disabled || simRunning || !questaAvailable}
+        <button onClick={wrap(onSimulate)} disabled={disabled || simRunning || !questaAvailable}
           className={`${btn} bg-purple-600/20 border-purple-500/30 text-purple-400 hover:bg-purple-600/30`}
           title={questaAvailable ? "Run in local simulator" : "Local simulator not detected"}>
           {simRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Cpu className="w-3.5 h-3.5" />}
@@ -94,7 +101,7 @@ function CodingToolbar({
       )}
 
       {/* Generate Waveform */}
-      <button onClick={onGenerateWaveform} disabled={disabled || analyzingSim}
+      <button onClick={wrap(onGenerateWaveform)} disabled={disabled || analyzingSim}
         className={`${btn} bg-cyan-600/20 border-cyan-500/30 text-cyan-400 hover:bg-cyan-600/30`}
         title="AI waveform diagnostic">
         {analyzingSim ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
@@ -102,7 +109,7 @@ function CodingToolbar({
       </button>
 
       {/* Open in EDA Playground */}
-      <button onClick={onOpenEDA} disabled={disabled || edaOpening}
+      <button onClick={wrap(onOpenEDA)} disabled={disabled || edaOpening}
         data-testid="open-eda-btn"
         className={`${btn} bg-blue-600/20 border-blue-500/30 text-blue-400 hover:bg-blue-600/30`}
         title="Copy code to clipboard and open EDA Playground">
@@ -111,7 +118,7 @@ function CodingToolbar({
       </button>
 
       {/* Paste EDA Output */}
-      <button onClick={onPasteEDA} disabled={!problem}
+      <button onClick={wrap(onPasteEDA)} disabled={!problem}
         className={`${btn} ${showPasteModal ? "bg-amber-600/30 border-amber-400/40 text-amber-300" : "bg-amber-600/20 border-amber-500/30 text-amber-400 hover:bg-amber-600/30"}`}
         title="Paste simulation output from EDA Playground">
         <ClipboardPaste className="w-3.5 h-3.5" />
@@ -119,7 +126,7 @@ function CodingToolbar({
       </button>
 
       {/* Analyze with AI */}
-      <button onClick={onAnalyzeAI} disabled={disabled || analyzingSim}
+      <button onClick={wrap(onAnalyzeAI)} disabled={disabled || analyzingSim}
         className={`${btn} bg-indigo-600/20 border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/30`}
         title="Analyze with AI">
         {analyzingSim ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
@@ -257,10 +264,14 @@ function QuestaSimPanel({ problem, userCode }) {
 
   const moduleName = (problem?.title || "vlsi_design").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
   const simCmds = getSimulationCommands(moduleName, `${moduleName}.sv`, storedPath);
-  const testbench = generateTestbench(moduleName, {
-    inputs: [{ name: "clk" }, { name: "rst_n" }, { name: "data_in", width: 8 }],
-    outputs: [{ name: "data_out", width: 8 }, { name: "valid" }],
-    clock: true, reset: true,
+  // Generate a TB that matches the user's actual module ports (critical: avoid hardcoded ports).
+  const extracted = extractPorts(userCode);
+  const ports = extracted || { moduleName, inputs: [], outputs: [], clocks: [], resets: [] };
+  const dutModuleName = ports.moduleName && ports.moduleName !== "unknown" ? ports.moduleName : moduleName;
+  const testbench = generatePortBasedTestbench({
+    moduleName: dutModuleName,
+    ports,
+    vcdFileName: "sim.vcd",
   });
   const tclScript = generateTclScript({
     topModule: moduleName,
@@ -386,6 +397,9 @@ export default function CodingPage() {
   const [difficulty, setDifficulty] = useState("intermediate");
   const [simTool, setSimTool] = useState(() => savedTool || "auto");
   const [simOutput, setSimOutput] = useState(() => savedLogs || "");
+  const [compileLog, setCompileLog] = useState("");
+  const [simulationLog, setSimulationLog] = useState(() => savedLogs || "");
+  const [runtimeLog, setRuntimeLog] = useState("");
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -396,11 +410,13 @@ export default function CodingPage() {
   const [evaluating, setEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState(null);
   const [simAnalysis, setSimAnalysisLocal] = useState(() => savedAnalysis || null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [analyzingSim, setAnalyzingSim] = useState(false);
   const [edaOpening, setEdaOpening] = useState(false);
   const [edaResult, setEdaResult] = useState(null);
   const [questaAvailable, setQuestaAvailable] = useState(false);
   const [vivadoAvailable, setVivadoAvailable] = useState(false);
+  const [waveformStatus, setWaveformStatus] = useState(null);
   const [startTime] = useState(Date.now());
   const { updateAnalytics } = useAnalyticsStore();
 
@@ -468,6 +484,8 @@ export default function CodingPage() {
 
   const handleRun = useCallback(() => {
     if (!problem || !userCode.trim()) return;
+    setShowAnalysis(false);
+    setWaveformStatus(null);
     const hasModule = /module\s+\w+/.test(userCode);
     const hasEndmodule = /endmodule/.test(userCode);
     const syntaxOk = hasModule && hasEndmodule && (/always\s+/.test(userCode) || /assign\s+/.test(userCode));
@@ -484,6 +502,9 @@ export default function CodingPage() {
     ].join("\n");
 
     setSimOutput(runLog);
+    setCompileLog(runLog);
+    setSimulationLog("");
+    setRuntimeLog("");
     setSimulationLogs(runLog);
     setEvalResult({
       success: true, passed: syntaxOk, overallScore: syntaxOk ? 75 : 40,
@@ -501,41 +522,71 @@ export default function CodingPage() {
 
   const handleSimulate = useCallback(async () => {
     if (!problem || !userCode.trim() || !questaAvailable) return;
+    setShowAnalysis(false);
+    setWaveformStatus(null);
     const moduleName = (problem.title || "vlsi_design").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
-    const tb = generateTestbench(moduleName, {
-      inputs: [{ name: "clk" }, { name: "rst_n" }, { name: "data_in", width: 8 }],
-      outputs: [{ name: "data_out", width: 8 }, { name: "valid" }],
-      clock: true, reset: true,
+    const extracted = extractPorts(userCode);
+    const ports = extracted || { moduleName, inputs: [], outputs: [], clocks: [], resets: [] };
+    const dutModuleName = ports.moduleName && ports.moduleName !== "unknown" ? ports.moduleName : moduleName;
+    const tb = generatePortBasedTestbench({
+      moduleName: dutModuleName,
+      ports,
+      vcdFileName: "sim.vcd",
     });
-    const result = await runInQuestasim({ code: userCode, testbench: tb, topModule: moduleName });
-    const logs = result.transcript || result.errors?.join("\n") || "";
-    setSimOutput(logs);
-    setSimulationLogs(logs);
+    const result = await runInQuestasim({ code: userCode, testbench: tb, topModule: dutModuleName });
+    const merged = result?.transcript || result?.simulationLog || result?.errors?.join("\n") || "";
+    setSimOutput(merged);
+    setCompileLog(result?.compileLog || "");
+    setSimulationLog(result?.simulationLog || merged);
+    setRuntimeLog(result?.runtimeLog || "");
+    setSimulationLogs(merged);
   }, [problem, userCode, questaAvailable]);
 
   // ── Generate Waveform (AI diagnostic) ───────────────────────────────────────
 
   const handleGenerateWaveform = useCallback(async () => {
     if (!problem || !userCode.trim()) return;
-    setAnalyzingSim(true); setSimAnalysisLocal(null);
-    try {
-      const result = await generateWaveformDiagnostic({
-        challengeTitle: problem.title,
-        problemStatement: problem.description,
-        userRtl: userCode,
-        testbench: problem.solution || undefined,
-        simulationLog: simOutput || undefined,
-        failureTimestamp: new Date().toISOString(),
-        expectedOutput: problem.testCases?.map((tc) => tc.expectedOutput).join("\n") || undefined,
-      });
-      setSimAnalysisLocal(result); setSimAnalysis(result);
-    } catch (e) {
-      const r = { success: false, error: e.message, diagnostic: "" };
-      setSimAnalysisLocal(r); setSimAnalysis(r);
-    } finally {
-      setAnalyzingSim(false);
+    setShowAnalysis(false);
+    setSimAnalysisLocal(null);
+    setSimAnalysis(null);
+    setWaveformStatus({ generated: false, path: "" });
+
+    // Best-effort: generate a VCD via local simulator if available; otherwise rely on EDA Playground flow.
+    if (effectiveTool === "vivado" && vivadoAvailable) {
+      // For now, route through "Open in EDA Playground" flow if Vivado is selected but not wired for waveform here.
+      // (Vivado waveform generation is supported in Electron via runVivadoSimulation, but this page currently runs Questa for local sim.)
+      setWaveformStatus({ generated: false, path: "" });
+      return;
     }
-  }, [problem, userCode, simOutput]);
+
+    if (effectiveTool === "questa" && questaAvailable) {
+      const moduleName = (problem.title || "vlsi_design").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+      const extracted = extractPorts(userCode);
+      const ports = extracted || { moduleName, inputs: [], outputs: [], clocks: [], resets: [] };
+      const dutModuleName = ports.moduleName && ports.moduleName !== "unknown" ? ports.moduleName : moduleName;
+      const tb = generatePortBasedTestbench({
+        moduleName: dutModuleName,
+        ports,
+        vcdFileName: "sim.vcd",
+      });
+      const result = await runInQuestasim({ code: userCode, testbench: tb, topModule: dutModuleName });
+      const merged = result?.transcript || result?.simulationLog || result?.errors?.join("\n") || "";
+      setSimOutput(merged);
+      setCompileLog(result?.compileLog || "");
+      setSimulationLog(result?.simulationLog || merged);
+      setRuntimeLog(result?.runtimeLog || "");
+      setSimulationLogs(merged);
+      if (result?.vcdPath) {
+        setWaveformStatus({ generated: true, path: result.vcdPath });
+      } else {
+        setWaveformStatus({ generated: false, path: "" });
+      }
+      return;
+    }
+
+    // Cloud (EDA) mode: the VCD is generated inside EDA Playground, not locally.
+    setWaveformStatus({ generated: false, path: "EDA Playground (dump.vcd)" });
+  }, [problem, userCode, effectiveTool, vivadoAvailable, questaAvailable, runInQuestasim, simOutput]);
 
   // ── Open in EDA Playground ───────────────────────────────────────────────────
 
@@ -546,7 +597,10 @@ export default function CodingPage() {
       const track = topic?.track || "design";
       const language = track === "verification" ? "uvm" : "systemverilog";
       const simulator = getRecommendedSimulator(track, language);
-      const moduleName = (problem.title || "vlsi_design").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+      // Extract actual module name from user code (not from problem title)
+      const extracted = extractPorts(userCode);
+      const fallbackName = (problem.title || "vlsi_design").replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+      const moduleName = extracted?.moduleName && extracted.moduleName !== "unknown" ? extracted.moduleName : fallbackName;
       const testbench = generateTestbenchForEDA(moduleName, userCode, language);
       const result = await buildAndOpen({ userCode, testbench, moduleName, language, simulator, track, waveformEnabled: true });
       setEdaResult(result);
@@ -562,6 +616,9 @@ export default function CodingPage() {
   const handleAnalyzePasted = useCallback(async (pasteText) => {
     if (!pasteText.trim()) return;
     setSimOutput(pasteText); setSimulationLogs(pasteText);
+    setCompileLog("");
+    setSimulationLog(pasteText);
+    setRuntimeLog("");
     setAnalyzingSim(true); setSimAnalysisLocal(null);
     try {
       const result = await generateWaveformDiagnostic({
@@ -573,9 +630,13 @@ export default function CodingPage() {
         failureTimestamp: new Date().toISOString(),
         expectedOutput: problem?.testCases?.map((tc) => tc.expectedOutput).join("\n") || undefined,
       });
+      setShowAnalysis(true);
+      // Keep existing UI contract: waveform badge shown when analysis succeeds
+      if (result?.success) setWaveformStatus({ generated: true, path: "" });
       setSimAnalysisLocal(result); setSimAnalysis(result);
     } catch (e) {
       const r = { success: false, error: e.message, diagnostic: "" };
+      setShowAnalysis(true);
       setSimAnalysisLocal(r); setSimAnalysis(r);
     } finally {
       setAnalyzingSim(false);
@@ -587,7 +648,30 @@ export default function CodingPage() {
   const handleAnalyzeAI = useCallback(async () => {
     if (!problem || !userCode.trim()) return;
     if (simOutput) await handleAnalyzePasted(simOutput);
-    else await handleGenerateWaveform();
+    else {
+      setAnalyzingSim(true);
+      setSimAnalysisLocal(null);
+      try {
+        const result = await generateWaveformDiagnostic({
+          challengeTitle: problem.title,
+          problemStatement: problem.description,
+          userRtl: userCode,
+          testbench: problem.solution || undefined,
+          simulationLog: simulationLog || simOutput || undefined,
+          failureTimestamp: new Date().toISOString(),
+          expectedOutput: problem.testCases?.map((tc) => tc.expectedOutput).join("\n") || undefined,
+        });
+        setShowAnalysis(true);
+        if (result?.success) setWaveformStatus({ generated: true, path: "" });
+        setSimAnalysisLocal(result); setSimAnalysis(result);
+      } catch (e) {
+        const r = { success: false, error: e.message, diagnostic: "" };
+        setShowAnalysis(true);
+        setSimAnalysisLocal(r); setSimAnalysis(r);
+      } finally {
+        setAnalyzingSim(false);
+      }
+    }
   }, [problem, userCode, simOutput, handleAnalyzePasted, handleGenerateWaveform]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
@@ -714,7 +798,7 @@ export default function CodingPage() {
               </div>
             )}
 
-            {simAnalysis && !showPasteModal && (
+            {showAnalysis && simAnalysis && !showPasteModal && (
               <div className={`mb-4 rounded-xl border p-4 ${simAnalysis.success ? "bg-cyan-500/10 border-cyan-500/20" : "bg-red-500/10 border-red-500/20"}`}>
                 <div className={`text-xs font-semibold mb-2 ${simAnalysis.success ? "text-cyan-400" : "text-red-400"}`}>AI Diagnostic Analysis</div>
                 <div className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-auto">
@@ -853,8 +937,9 @@ export default function CodingPage() {
             <div className="mt-4">
               <TerminalPanel
                 logs={simOutput}
-                compileLog={evalResult?.errors?.length ? undefined : undefined}
-                simulationLog={simOutput}
+                compileLog={compileLog}
+                simulationLog={simulationLog}
+                runtimeLog={runtimeLog}
                 passFail={
                   simAnalysis?.success && simAnalysis?.diagnostic?.toLowerCase().includes("pass")
                     ? "pass"
@@ -866,9 +951,7 @@ export default function CodingPage() {
                     ? "fail"
                     : null
                 }
-                waveformStatus={
-                  simAnalysis?.success ? { generated: true } : null
-                }
+                waveformStatus={waveformStatus || (simAnalysis?.success ? { generated: true, path: "" } : null)}
               />
             </div>
           </>

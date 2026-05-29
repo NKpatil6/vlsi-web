@@ -63,14 +63,23 @@ export async function runInQuestasim({
 }) {
   if (isElectron()) {
     try {
-      // Pass the user's configured path so Electron can use it
-      const storedPath = getStoredQuestaPath();
+      // Electron IPC expects files[] and an explicit install dir (questaPath)
+      const storedPath = getStoredQuestaPath(); // can be a directory or full vsim.exe path (user-provided)
+      const questaDir =
+        storedPath && storedPath.toLowerCase().endsWith("vsim.exe")
+          ? storedPath.replace(/vsim\.exe$/i, "")
+          : storedPath;
+
+      const top = topModule || "top";
+      const tbName = `tb_${top}`;
       const result = await window.electronAPI.runVSim({
-        code,
-        testbench,
-        topModule,
+        files: [
+          { name: `${top}.sv`, content: code },
+          { name: `${tbName}.sv`, content: testbench || "" },
+        ],
+        topModule: tbName, // run testbench as top
+        questaPath: questaDir,
         timeout,
-        questasimPath: storedPath || undefined,
       });
       return result;
     } catch (e) {

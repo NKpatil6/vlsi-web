@@ -11,6 +11,40 @@ const os = require("os");
 
 let mainWindow = null;
 
+function getPathDirs() {
+  const raw = process.env.PATH || process.env.Path || "";
+  return raw
+    .split(path.delimiter)
+    .map((p) => (p || "").trim())
+    .filter(Boolean);
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr.filter(Boolean)));
+}
+
+function safeReadDir(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+function looksLikeVivadoBinDir(dir) {
+  const xvlog = path.join(dir, "xvlog" + (process.platform === "win32" ? ".bat" : ""));
+  const xelab = path.join(dir, "xelab" + (process.platform === "win32" ? ".bat" : ""));
+  const xsim = path.join(dir, "xsim" + (process.platform === "win32" ? ".bat" : ""));
+  return fs.existsSync(xvlog) && fs.existsSync(xelab) && fs.existsSync(xsim);
+}
+
+function looksLikeQuestaBinDir(dir) {
+  const vsim = path.join(dir, "vsim" + (process.platform === "win32" ? ".exe" : ""));
+  const vlog = path.join(dir, "vlog" + (process.platform === "win32" ? ".exe" : ""));
+  const vlib = path.join(dir, "vlib" + (process.platform === "win32" ? ".exe" : ""));
+  return fs.existsSync(vsim) && fs.existsSync(vlog) && fs.existsSync(vlib);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -109,20 +143,45 @@ function spawnProcess(command, args, options = {}) {
 // ─── Vivado IPC ──────────────────────────────────────────────────────────────
 
 ipcMain.handle("vivado:detect", async (_event, customPath) => {
-  const candidates = customPath
-    ? [customPath]
-    : [
-        process.env.VIVADO,
-        "C:\\Xilinx\\Vivado\\2024.1\\bin",
-        "C:\\Xilinx\\Vivado\\2023.2\\bin",
-        "C:\\Xilinx\\Vivado\\2023.1\\bin",
-        "/opt/Xilinx/Vivado/2024.1/bin",
-        "/opt/Xilinx/Vivado/2023.2/bin",
-      ].filter(Boolean);
+  const fromEnvAndDefaults = [
+    process.env.VIVADO,
+    "C:\\AMDDesignTools\\2025.2\\Vivado\\bin",
+    "C:\\AMDDesignTools\\2025.1\\Vivado\\bin",
+    "C:\\AMDDesignTools\\2024.2\\Vivado\\bin",
+    "C:\\Xilinx\\Vivado\\2025.2\\bin",
+    "C:\\Xilinx\\Vivado\\2024.2\\bin",
+    "C:\\Xilinx\\Vivado\\2024.1\\bin",
+    "C:\\Xilinx\\Vivado\\2023.2\\bin",
+    "C:\\Xilinx\\Vivado\\2023.1\\bin",
+    "/opt/Xilinx/Vivado/2025.2/bin",
+    "/opt/Xilinx/Vivado/2024.2/bin",
+    "/opt/Xilinx/Vivado/2024.1/bin",
+    "/opt/Xilinx/Vivado/2023.2/bin",
+  ].filter(Boolean);
+
+  const fromPath = getPathDirs();
+
+  const fromCommonRoots = [];
+  if (process.platform === "win32") {
+    // C:\AMDDesignTools\<ver>\Vivado\bin
+    for (const e of safeReadDir("C:\\AMDDesignTools")) {
+      if (!e.isDirectory()) continue;
+      fromCommonRoots.push(path.join("C:\\AMDDesignTools", e.name, "Vivado", "bin"));
+    }
+    // C:\Xilinx\Vivado\<ver>\bin
+    for (const e of safeReadDir("C:\\Xilinx\\Vivado")) {
+      if (!e.isDirectory()) continue;
+      fromCommonRoots.push(path.join("C:\\Xilinx\\Vivado", e.name, "bin"));
+    }
+  }
+
+  const candidates = uniq(
+    (customPath ? [customPath] : []).concat(fromPath, fromEnvAndDefaults, fromCommonRoots),
+  );
 
   for (const dir of candidates) {
-    const xvlog = path.join(dir, "xvlog" + (process.platform === "win32" ? ".bat" : ""));
-    if (fs.existsSync(xvlog)) {
+    if (looksLikeVivadoBinDir(dir)) {
+      const xvlog = path.join(dir, "xvlog" + (process.platform === "win32" ? ".bat" : ""));
       const result = await spawnProcess(xvlog, ["--version"], { timeout: 10000 });
       const versionMatch = result.stdout.match(/Vivado Simulator v([\d.]+)/i);
       return {
@@ -193,8 +252,8 @@ ipcMain.handle("vivado:run", async (_event, { files, topModule, vivadoPath, time
     });
 
     // Find VCD file
-    const vcdPath = path.join(tempDir, "output.vcd");
-    const vcdExists = fs.existsSync(vcdPath);
+    const vcdCandidates = ["output.vcd", "dump.vcd", "sim.vcd"].map((n) => path.join(tempDir, n));
+    const vcdPath = vcdCandidates.find((p) => fs.existsSync(p)) || null;
 
     return {
       success: simResult.success,
@@ -203,7 +262,7 @@ ipcMain.handle("vivado:run", async (_event, { files, topModule, vivadoPath, time
       elaborateErrors: [],
       warnings: [],
       output: simResult.stdout,
-      vcdPath: vcdExists ? vcdPath : null,
+      vcdPath,
     };
   } catch (err) {
     return {
@@ -222,18 +281,47 @@ ipcMain.handle("vivado:run", async (_event, { files, topModule, vivadoPath, time
 // ─── QuestaSim IPC ───────────────────────────────────────────────────────────
 
 ipcMain.handle("questa:detect", async (_event, customPath) => {
-  const candidates = customPath
-    ? [customPath]
-    : [
-        process.env.QUESTASIM_PATH,
-        "C:\\questasim\\win64",
-        "C:\\modeltech64_2024.1\\win64",
-        "/opt/questasim/linux_x86_64",
-      ].filter(Boolean);
+  const fromEnvAndDefaults = [
+    process.env.QUESTASIM_PATH,
+    "C:\\questasim\\win64",
+    "C:\\questasim\\bin",
+    "C:\\modeltech64_2024.1\\win64",
+    "C:\\intelFPGA\\questa_fse\\win64",
+    "C:\\intelFPGA\\20.1\\questa_fse\\win64",
+    "/opt/questasim/linux_x86_64",
+  ].filter(Boolean);
+
+  const fromPath = getPathDirs();
+
+  const fromCommonRoots = [];
+  if (process.platform === "win32") {
+    for (const e of safeReadDir("C:\\questasim")) {
+      if (!e.isDirectory()) continue;
+      fromCommonRoots.push(path.join("C:\\questasim", e.name));
+      fromCommonRoots.push(path.join("C:\\questasim", e.name, "win64"));
+    }
+    for (const e of safeReadDir("C:\\intelFPGA")) {
+      if (!e.isDirectory()) continue;
+      fromCommonRoots.push(path.join("C:\\intelFPGA", e.name, "questa_fse", "win64"));
+      fromCommonRoots.push(path.join("C:\\intelFPGA", e.name, "modelsim_ase", "win64"));
+      fromCommonRoots.push(path.join("C:\\intelFPGA", e.name, "modelsim_ase", "win32aloem"));
+    }
+    // ModelSim/Questa can be installed in versioned roots like C:\modeltech64_XXXX.Y
+    for (const e of safeReadDir("C:\\")) {
+      if (!e.isDirectory()) continue;
+      if (/^modeltech64_/i.test(e.name)) {
+        fromCommonRoots.push(path.join("C:\\", e.name, "win64"));
+      }
+    }
+  }
+
+  const candidates = uniq(
+    (customPath ? [customPath] : []).concat(fromPath, fromEnvAndDefaults, fromCommonRoots),
+  );
 
   for (const dir of candidates) {
-    const vsim = path.join(dir, "vsim" + (process.platform === "win32" ? ".exe" : ""));
-    if (fs.existsSync(vsim)) {
+    if (looksLikeQuestaBinDir(dir)) {
+      const vsim = path.join(dir, "vsim" + (process.platform === "win32" ? ".exe" : ""));
       const result = await spawnProcess(vsim, ["-version"], { timeout: 10000 });
       return {
         available: true,
@@ -257,8 +345,14 @@ ipcMain.handle("questa:run", async (_event, { files, topModule, questaPath, time
 
     const vlog = path.join(questaPath, "vlog" + (process.platform === "win32" ? ".exe" : ""));
     const vsim = path.join(questaPath, "vsim" + (process.platform === "win32" ? ".exe" : ""));
+    const vlib = path.join(questaPath, "vlib" + (process.platform === "win32" ? ".exe" : ""));
+    const vmap = path.join(questaPath, "vmap" + (process.platform === "win32" ? ".exe" : ""));
 
     const fileNames = files.map((f) => f.name);
+
+    // Create work library
+    await spawnProcess(vlib, ["work"], { timeout: Math.max(3000, Math.floor(timeout / 10)), cwd: tempDir });
+    await spawnProcess(vmap, ["work", "work"], { timeout: Math.max(3000, Math.floor(timeout / 10)), cwd: tempDir });
 
     // Compile
     const compileResult = await spawnProcess(vlog, ["-sv", ...fileNames], {
@@ -268,6 +362,9 @@ ipcMain.handle("questa:run", async (_event, { files, topModule, questaPath, time
     if (!compileResult.success) {
       return {
         success: false,
+        compileLog: compileResult.stdout,
+        simulationLog: "",
+        runtimeLog: compileResult.stderr,
         transcript: compileResult.stdout + "\n" + compileResult.stderr,
         errors: [compileResult.stderr || compileResult.stdout],
         warnings: [],
@@ -276,20 +373,33 @@ ipcMain.handle("questa:run", async (_event, { files, topModule, questaPath, time
     }
 
     // Simulate
+    const transcriptPath = path.join(tempDir, "transcript.log");
     const simResult = await spawnProcess(
       vsim,
-      ["-c", "-do", `run -all; quit`, topModule],
+      ["-c", "-l", transcriptPath, topModule, "-do", `run -all; quit`],
       { timeout: timeout / 2, cwd: tempDir },
     );
 
-    const transcript = simResult.stdout + "\n" + simResult.stderr;
+    let transcript = simResult.stdout + "\n" + simResult.stderr;
+    try {
+      if (fs.existsSync(transcriptPath)) {
+        transcript = fs.readFileSync(transcriptPath, "utf-8");
+      }
+    } catch {
+      // keep best-effort transcript from stdout/stderr
+    }
+
     const hasErrors = transcript.includes("** Error") || transcript.includes("Error:");
     const hasAssertionFail =
       transcript.includes("Assertion failed") || transcript.includes("UVM_FATAL");
 
     return {
       success: simResult.success && !hasErrors,
+      compileLog: compileResult.stdout + (compileResult.stderr ? "\n" + compileResult.stderr : ""),
+      simulationLog: transcript,
+      runtimeLog: simResult.stderr || "",
       transcript,
+      vcdPath: (["sim.vcd", "dump.vcd", "output.vcd"].map((n) => path.join(tempDir, n)).find((p) => fs.existsSync(p))) || null,
       errors: hasErrors
         ? transcript
             .split("\n")
@@ -304,6 +414,9 @@ ipcMain.handle("questa:run", async (_event, { files, topModule, questaPath, time
     return {
       success: false,
       transcript: "",
+      compileLog: "",
+      simulationLog: "",
+      runtimeLog: "",
       errors: [err.message],
       warnings: [],
       passed: false,

@@ -97,6 +97,9 @@ export function resolveEffectiveTool({ selectedTool, track, vivadoAvailable, que
   if (selectedTool === "vivado") return vivadoAvailable ? "vivado" : "eda";
   if (selectedTool === "questa") return questaAvailable ? "questa" : "eda";
   // auto
-  if (track === "design") return vivadoAvailable ? "vivado" : "eda";
-  return questaAvailable ? "questa" : "eda";
+  // Global priority required by UI: Vivado > QuestaSim > EDA Playground
+  // (independent of track so tool detection badge is accurate at startup)
+  if (vivadoAvailable) return "vivado";
+  if (questaAvailable) return "questa";
+  return "eda";
 }
