@@ -20,6 +20,7 @@ import {
   generateTclScript,
   getSimulationCommands,
 } from "@/services/questasimService";
+import TerminalPanel from "@/components/TerminalPanel";
 import {
   Code2, Play, AlertCircle, Zap, CheckCircle2, RefreshCw,
   BookOpen, Lightbulb, Terminal, Copy, ChevronDown, ChevronUp,
@@ -495,9 +496,13 @@ export default function CodingPage() {
     setAnalyzingSim(true); setSimAnalysisLocal(null);
     try {
       const result = await generateWaveformDiagnostic({
-        topic: problem.title,
-        simulatorLogs: simOutput || "No simulation output yet — analyze RTL for potential waveform issues.",
-        userCode,
+        challengeTitle: problem.title,
+        problemStatement: problem.description,
+        userRtl: userCode,
+        testbench: problem.solution || undefined,
+        simulationLog: simOutput || undefined,
+        failureTimestamp: new Date().toISOString(),
+        expectedOutput: problem.testCases?.map((tc) => tc.expectedOutput).join("\n") || undefined,
       });
       setSimAnalysisLocal(result); setSimAnalysis(result);
     } catch (e) {
@@ -535,7 +540,15 @@ export default function CodingPage() {
     setSimOutput(pasteText); setSimulationLogs(pasteText);
     setAnalyzingSim(true); setSimAnalysisLocal(null);
     try {
-      const result = await generateWaveformDiagnostic({ topic: problem?.title, simulatorLogs: pasteText, userCode });
+      const result = await generateWaveformDiagnostic({
+        challengeTitle: problem?.title,
+        problemStatement: problem?.description,
+        userRtl: userCode,
+        testbench: problem?.solution || undefined,
+        simulationLog: pasteText,
+        failureTimestamp: new Date().toISOString(),
+        expectedOutput: problem?.testCases?.map((tc) => tc.expectedOutput).join("\n") || undefined,
+      });
       setSimAnalysisLocal(result); setSimAnalysis(result);
     } catch (e) {
       const r = { success: false, error: e.message, diagnostic: "" };
@@ -709,7 +722,7 @@ export default function CodingPage() {
                       <span className="font-semibold text-slate-100 text-sm">Test Cases</span>
                     </div>
                     <div className="p-5 space-y-3">
-                      {problem.testCases.map((tc, i) => (
+                      {(problem.testCases || []).map((tc, i) => (
                         <div key={i} className="bg-slate-800/50 rounded-lg p-3 font-mono text-xs">
                           <div className="text-slate-400 mb-1">Input: <span className="text-slate-200">{tc.input}</span></div>
                           <div className="text-slate-400">Expected: <span className="text-green-400">{tc.expectedOutput}</span></div>
@@ -810,6 +823,47 @@ export default function CodingPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Terminal Panel */}
+            <div className="mt-4">
+              <TerminalPanel
+                logs={simOutput}
+                simulationLog={simOutput}
+                passFail={
+                  evalResult?.passed === true
+                    ? "pass"
+                    : evalResult?.passed === false
+                    ? "fail"
+                    : null
+                }
+                waveformStatus={
+                  simAnalysis?.success ? { generated: true } : null
+                }
+              />
+            </div>
+
+            {/* Terminal Panel */}
+            <div className="mt-4">
+              <TerminalPanel
+                logs={simOutput}
+                compileLog={undefined}
+                simulationLog={simOutput}
+                passFail={
+                  simAnalysis?.success && simAnalysis?.diagnostic?.toLowerCase().includes("pass")
+                    ? "pass"
+                    : simAnalysis?.success && simAnalysis?.diagnostic?.toLowerCase().includes("fail")
+                    ? "fail"
+                    : evalResult?.passed === true
+                    ? "pass"
+                    : evalResult?.passed === false
+                    ? "fail"
+                    : null
+                }
+                waveformStatus={
+                  simAnalysis?.success ? { generated: true } : null
+                }
+              />
             </div>
           </>
         )}

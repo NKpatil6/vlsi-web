@@ -598,31 +598,138 @@ export async function generateStudyPlan(topicTitle, availableHoursPerDay) {
 }
 
 /**
+ * Extract module names from Verilog/SystemVerilog source code.
+ */
+function extractModuleNames(code) {
+  if (!code) return [];
+  const modules = [];
+  const regex = /\bmodule\s+(\w+)/g;
+  let match;
+  while ((match = regex.exec(code)) !== null) {
+    modules.push(match[1]);
+  }
+  return modules;
+}
+
+/**
+ * Validate that AI diagnostic only references modules present in the source code.
+ * Returns { valid, sanitized, hallucinatedModules }.
+ */
+export function validateDiagnosticResponse(diagnostic, allowedModules) {
+  if (!diagnostic || !allowedModules?.length) {
+    return { valid: true, sanitized: diagnostic, hallucinatedModules: [] };
+  }
+
+  const allowed = new Set(allowedModules.map((m) => m.toLowerCase()));
+  const infrastructure = new Set([
+    "tb", "testbench", "clk_gen", "stimulus", "checker", "monitor", "driver",
+    "interface", "package", "top", "dut",
+  ]);
+
+  const moduleRefPattern = /\b(?:module|block|unit|instance|inst|entity)\s+(\w+)|(\w+)(?:_inst|_i\d*)\b/gi;
+  const mentioned = new Set();
+  let match;
+  while ((match = moduleRefPattern.exec(diagnostic)) !== null) {
+    const name = (match[1] || match[2] || "").toLowerCase();
+    if (name.length > 2 && !infrastructure.has(name)) {
+      mentioned.add(name);
+    }
+  }
+
+  const hallucinated = [...mentioned].filter((m) => !allowed.has(m) && !infrastructure.has(m));
+
+  if (hallucinated.length === 0) {
+    return { valid: true, sanitized: diagnostic, hallucinatedModules: [] };
+  }
+
+  const lines = diagnostic.split("\n");
+  const sanitized = [];
+  let skipSection = false;
+
+  for (const line of lines) {
+    if (line.match(/^#{1,3}\s/) || line.match(/^\*\*[^*]+\*\*/)) {
+      skipSection = false;
+    }
+    const referencesHallucinated = hallucinated.some((h) => line.toLowerCase().includes(h));
+    if (referencesHallucinated && !line.match(/^#{1,3}\s/)) {
+      skipSection = true;
+      continue;
+    }
+    if (!skipSection) {
+      sanitized.push(line);
+    }
+  }
+
+  console.warn("[AI Analyzer] Hallucinated modules detected and removed:", hallucinated);
+
+  return {
+    valid: false,
+    sanitized: sanitized.join("\n").trim(),
+    hallucinatedModules: hallucinated,
+  };
+}
+
+/**
  * Generate waveform diagnostic analysis for simulation mismatches.
+ * Operates ONLY on real simulation context — never infers unrelated modules.
  */
 export async function generateWaveformDiagnostic({
-  topic,
-  failureTimestamp,
-  simulatorLogs,
+  challengeTitle,
+  problemStatement,
+  userRtl,
+  testbench,
+  compileLog,
+  simulationLog,
   waveformDiff,
+  failureTimestamp,
+  expectedOutput,
+  actualOutput,
+  // Legacy params (backwards compat)
+  topic,
+  simulatorLogs,
   userCode,
 }) {
+  const title = challengeTitle || topic || "Unknown Challenge";
+  const rtl = userRtl || userCode || "";
+  const compile = compileLog || "";
+  const simulation = simulationLog || simulatorLogs || "";
+  const expected = expectedOutput || "";
+  const actual = actualOutput || "";
+
+  const userModules = extractModuleNames(rtl);
+  const testbenchModules = testbench ? extractModuleNames(testbench) : [];
+  const allModules = [...new Set([...userModules, ...testbenchModules])];
+  const moduleList = allModules.length > 0
+    ? allModules.map((m) => "  - " + m).join("\n")
+    : "  - (no modules detected in code)";
+
   const prompt =
-    "You are an expert VLSI Design Verification Engineer and Mentor. " +
-    "Analyze a simulation mismatch and provide a targeted diagnostic breakdown.\n\n" +
-    "CONTEXT:\n" +
-    "Topic: " + (topic || "General VLSI") + "\n" +
-    "Failure Timestamp: " + (failureTimestamp || "N/A") + "\n" +
-    "Simulator Logs:\n" + (simulatorLogs || "No logs provided") + "\n\n" +
-    "Waveform Diff Delta:\n" + (waveformDiff || "No diff provided") + "\n\n" +
-    "USER RTL CODE:\n" + (userCode || "No code provided") + "\n\n" +
+    "You are an expert VLSI Design Verification Engineer.\n" +
+    "Analyze the simulation results below and provide a targeted diagnostic.\n\n" +
+    "=== STRICT RULES ===\n" +
+    "- ONLY discuss modules, signals, and behaviors present in the code below\n" +
+    "- NEVER invent, assume, or reference modules not listed\n" +
+    "- NEVER discuss decoder, FIFO, FSM, CDC, or any module unless it explicitly exists in the code\n" +
+    "- If the challenge is about a counter, ONLY discuss counter-related logic\n\n" +
+    "=== CHALLENGE ===\n" +
+    "Title: " + title + "\n" +
+    "Problem: " + (problemStatement || "N/A") + "\n\n" +
+    "=== ALLOWED MODULES (ONLY discuss these) ===\n" + moduleList + "\n\n" +
+    "=== USER RTL CODE ===\n" + (rtl || "No code provided") + "\n\n" +
+    (testbench ? "=== TESTBENCH ===\n" + testbench + "\n\n" : "") +
+    (compile ? "=== COMPILE LOG ===\n" + compile + "\n\n" : "") +
+    (simulation ? "=== SIMULATION LOG ===\n" + simulation + "\n\n" : "") +
+    (waveformDiff ? "=== WAVEFORM DIFF ===\n" + waveformDiff + "\n\n" : "") +
+    (expected ? "=== EXPECTED OUTPUT ===\n" + expected + "\n\n" : "") +
+    (actual ? "=== ACTUAL OUTPUT ===\n" + actual + "\n\n" : "") +
+    (failureTimestamp ? "Failure Timestamp: " + failureTimestamp + "\n\n" : "") +
     "Provide exactly this format:\n\n" +
     "## Simulation Diagnostic\n\n" +
-    "**The Symptom:** [description of what went wrong]\n\n" +
+    "**The Symptom:** [what went wrong — reference specific signals from the code above]\n\n" +
     "### Root Cause Analysis\n" +
-    "[detailed hardware-specific root cause]\n\n" +
+    "[analyze ONLY the modules and signals listed above]\n\n" +
     "### How to Fix\n" +
-    "[specific fix guidance with code examples if applicable]\n\n" +
+    "[specific fix with code referencing the actual module names]\n\n" +
     "Be concise, technical, and actionable. No conversational filler.";
 
   const aiResponse = await requestAI(prompt, {
@@ -634,10 +741,17 @@ export async function generateWaveformDiagnostic({
     return { success: false, error: aiResponse.error, diagnostic: "" };
   }
 
-  const diagnostic = String(aiResponse.content || "").trim().substring(0, 8000);
+  let diagnostic = String(aiResponse.content || "").trim().substring(0, 8000);
+
+  const validation = validateDiagnosticResponse(diagnostic, allModules);
+  if (!validation.valid) {
+    diagnostic = validation.sanitized || diagnostic;
+  }
+
   return {
     success: diagnostic.length > 50,
     diagnostic,
+    hallucinatedModules: validation.hallucinatedModules,
     error: diagnostic.length <= 50 ? "Diagnostic too short" : undefined,
   };
 }
@@ -677,7 +791,7 @@ export async function generateBugChallenge(topicTitle, difficulty = "intermediat
     return { success: false, error: aiResponse.error, challenge: null };
   }
 
-  const parsed = safeJSONParse(extractJSON(aiResponse.content));
+  const parsed = safeJSONParse(extractJSON(aiResponse.content), null);
   if (!parsed || !parsed.title || !parsed.fixed_port_template_with_bug) {
     return { success: false, error: "Invalid challenge format", challenge: null };
   }

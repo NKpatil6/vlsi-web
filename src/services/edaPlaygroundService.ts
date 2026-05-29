@@ -157,8 +157,10 @@ export function generateTestbenchForEDA(
   const inputs = ports.filter((p) => p.dir === "input");
   const outputs = ports.filter((p) => p.dir === "output");
 
-  const hasClk = inputs.some((p) => /clk|clock/i.test(p.name));
-  const hasRst = inputs.some((p) => /rst|reset/i.test(p.name));
+  const clkSignal = inputs.find((p) => /clk|clock/i.test(p.name));
+  const rstSignal = inputs.find((p) => /rst|reset/i.test(p.name));
+  const hasClk = !!clkSignal;
+  const hasRst = !!rstSignal;
 
   const declarations = [
     ...inputs.map((p) => `  logic ${p.name};`),
@@ -168,11 +170,11 @@ export function generateTestbenchForEDA(
   const portConnections = ports.map((p) => `    .${p.name}(${p.name})`).join(",\n");
 
   const clkGen = hasClk
-    ? `\n  // Clock generation\n  initial ${inputs.find((p) => /clk|clock/i.test(p.name))!.name} = 0;\n  always #5 ${inputs.find((p) => /clk|clock/i.test(p.name))!.name} = ~${inputs.find((p) => /clk|clock/i.test(p.name))!.name};\n`
+    ? `\n  // Clock generation\n  initial ${clkSignal.name} = 0;\n  always #5 ${clkSignal.name} = ~${clkSignal.name};\n`
     : "";
 
   const rstSeq = hasRst
-    ? `    ${inputs.find((p) => /rst|reset/i.test(p.name))!.name} = 1; #20;\n    ${inputs.find((p) => /rst|reset/i.test(p.name))!.name} = 0; #10;\n`
+    ? `    ${rstSignal.name} = 1; #20;\n    ${rstSignal.name} = 0; #10;\n`
     : "";
 
   const outputChecks = outputs

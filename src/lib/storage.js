@@ -146,19 +146,31 @@ export function getAnalyticsSummary() {
     summary.total_coding_problems += a.coding_problems || 0;
     summary.total_flashcards_reviewed += a.flashcards_reviewed || 0;
   }
-  // Calculate streak
+  // Calculate streak (start from most recent active day, not necessarily today)
   const sorted = [...all].sort((a, b) => b.date.localeCompare(a.date));
   const today = new Date().toISOString().split("T")[0];
   let d = new Date(today);
+  let streakStarted = false;
   for (const a of sorted) {
     const dateStr = d.toISOString().split("T")[0];
+    if (a.date > dateStr) continue; // skip future entries
     if (a.date === dateStr && (a.study_minutes > 0 || a.sessions_completed > 0)) {
       summary.streak++;
       d.setDate(d.getDate() - 1);
-    } else if (a.date < dateStr) {
-      break;
+      streakStarted = true;
+    } else if (!streakStarted) {
+      // No entry for today — start checking from this entry's date
+      d = new Date(a.date);
+      const newDateStr = d.toISOString().split("T")[0];
+      if (a.date === newDateStr && (a.study_minutes > 0 || a.sessions_completed > 0)) {
+        summary.streak++;
+        d.setDate(d.getDate() - 1);
+        streakStarted = true;
+      } else {
+        break;
+      }
     } else {
-      d.setDate(d.getDate() - 1);
+      break;
     }
   }
   return summary;

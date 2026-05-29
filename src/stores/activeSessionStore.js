@@ -1,17 +1,24 @@
 import { create } from "zustand";
 
-/**
- * Persists the active session state across page switches.
- * Stored in localStorage so it survives route changes and rerenders.
- */
-export const useActiveSessionStore = create((set, get) => ({
-  // Active session data
-  activeSessionId: null,
-  startedAt: null,
-  elapsedSeconds: 0,
-  isPaused: false,
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn(`[Storage] Failed to save ${key}:`, e.message);
+  }
+}
 
-  // Coding task persistence
+function safeGetItem(key, fallback = null) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null ? val : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export const useActiveSessionStore = create((set) => ({
+  activeSession: null,
   codingTask: null,
   editorCode: "",
   selectedTopic: null,
@@ -19,113 +26,105 @@ export const useActiveSessionStore = create((set, get) => ({
   simulationLogs: "",
   simAnalysis: null,
 
-  // Start a session
-  startSession: (sessionId) => {
-    const now = Date.now();
-    set({
-      activeSessionId: sessionId,
-      startedAt: now,
-      elapsedSeconds: 0,
-      isPaused: false,
+  startSession: (session) => {
+    set({ activeSession: session });
+    safeSetItem("vlsi_active_session", JSON.stringify(session));
+  },
+
+  endSession: () => {
+    set({ activeSession: null });
+    try { localStorage.removeItem("vlsi_active_session"); } catch {}
+  },
+
+  updateSessionProgress: (updates) => {
+    set((state) => {
+      if (!state.activeSession) return state;
+      const updated = { ...state.activeSession, ...updates };
+      safeSetItem("vlsi_active_session", JSON.stringify(updated));
+      return { activeSession: updated };
     });
-    localStorage.setItem("vlsi_active_session", JSON.stringify({
-      activeSessionId: sessionId,
-      startedAt: now,
-    }));
   },
 
-  // Stop the active session
-  stopSession: () => {
-    set({
-      activeSessionId: null,
-      startedAt: null,
-      elapsedSeconds: 0,
-      isPaused: false,
-    });
-    localStorage.removeItem("vlsi_active_session");
-  },
-
-  // Update elapsed time (called by timer interval)
-  tick: () => {
-    const { startedAt, isPaused } = get();
-    if (!startedAt || isPaused) return;
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    set({ elapsedSeconds: elapsed });
-  },
-
-  // Pause/resume
-  togglePause: () => {
-    set((s) => ({ isPaused: !s.isPaused }));
-  },
-
-  // Coding state persistence
   setCodingTask: (task) => {
     set({ codingTask: task });
-    localStorage.setItem("vlsi_coding_task", JSON.stringify(task));
+    safeSetItem("vlsi_coding_task", JSON.stringify(task));
   },
 
   setEditorCode: (code) => {
     set({ editorCode: code });
-    localStorage.setItem("vlsi_editor_code", code);
+    safeSetItem("vlsi_editor_code", code);
   },
 
   setSelectedTopic: (topic) => {
     set({ selectedTopic: topic });
-    localStorage.setItem("vlsi_selected_topic", topic || "");
+    safeSetItem("vlsi_selected_topic", topic || "");
   },
 
   setSelectedTool: (tool) => {
     set({ selectedTool: tool });
-    localStorage.setItem("vlsi_selected_tool", tool || "");
+    safeSetItem("vlsi_selected_tool", tool || "");
   },
 
   setSimulationLogs: (logs) => {
     set({ simulationLogs: logs });
-    localStorage.setItem("vlsi_simulation_logs", logs || "");
+    safeSetItem("vlsi_simulation_logs", logs);
   },
 
   setSimAnalysis: (analysis) => {
     set({ simAnalysis: analysis });
-    try {
-      localStorage.setItem("vlsi_sim_analysis", JSON.stringify(analysis));
-    } catch {}
+    safeSetItem("vlsi_sim_analysis", JSON.stringify(analysis));
   },
 
-  // Restore coding state from localStorage
   restoreCodingState: () => {
     try {
-      const task = JSON.parse(localStorage.getItem("vlsi_coding_task") || "null");
-      const code = localStorage.getItem("vlsi_editor_code") || "";
-      const topic = localStorage.getItem("vlsi_selected_topic") || null;
-      const tool = localStorage.getItem("vlsi_selected_tool") || null;
-      const logs = localStorage.getItem("vlsi_simulation_logs") || "";
-      const analysis = JSON.parse(localStorage.getItem("vlsi_sim_analysis") || "null");
-      set({ codingTask: task, editorCode: code, selectedTopic: topic, selectedTool: tool, simulationLogs: logs, simAnalysis: analysis });
-    } catch {}
+      const task = safeGetItem("vlsi_coding_task");
+      const code = safeGetItem("vlsi_editor_code");
+      const topic = safeGetItem("vlsi_selected_topic");
+      const tool = safeGetItem("vlsi_selected_tool");
+      const logs = safeGetItem("vlsi_simulation_logs");
+      const analysis = safeGetItem("vlsi_sim_analysis");
+      set({
+        codingTask: task ? JSON.parse(task) : null,
+        editorCode: code || "",
+        selectedTopic: topic || null,
+        selectedTool: tool || null,
+        simulationLogs: logs || "",
+        simAnalysis: analysis ? JSON.parse(analysis) : null,
+      });
+    } catch (e) {
+      console.warn("[Session Store] Failed to restore coding state:", e.message);
+    }
   },
 
-  // Restore active session from localStorage
   restoreActiveSession: () => {
     try {
-      const data = JSON.parse(localStorage.getItem("vlsi_active_session") || "null");
-      if (data && data.activeSessionId) {
-        set({
-          activeSessionId: data.activeSessionId,
-          startedAt: data.startedAt,
-          elapsedSeconds: Math.floor((Date.now() - data.startedAt) / 1000),
-        });
+      const session = safeGetItem("vlsi_active_session");
+      if (session) {
+        set({ activeSession: JSON.parse(session) });
       }
-    } catch {}
+    } catch (e) {
+      console.warn("[Session Store] Failed to restore active session:", e.message);
+    }
   },
 
-  // Clear coding state
-  clearCodingState: () => {
-    set({ codingTask: null, editorCode: "", selectedTopic: null, selectedTool: null, simulationLogs: "", simAnalysis: null });
-    localStorage.removeItem("vlsi_coding_task");
-    localStorage.removeItem("vlsi_editor_code");
-    localStorage.removeItem("vlsi_selected_topic");
-    localStorage.removeItem("vlsi_selected_tool");
-    localStorage.removeItem("vlsi_simulation_logs");
-    localStorage.removeItem("vlsi_sim_analysis");
+  clearAll: () => {
+    set({
+      activeSession: null,
+      codingTask: null,
+      editorCode: "",
+      selectedTopic: null,
+      selectedTool: null,
+      simulationLogs: "",
+      simAnalysis: null,
+    });
+    try {
+      localStorage.removeItem("vlsi_active_session");
+      localStorage.removeItem("vlsi_coding_task");
+      localStorage.removeItem("vlsi_editor_code");
+      localStorage.removeItem("vlsi_selected_topic");
+      localStorage.removeItem("vlsi_selected_tool");
+      localStorage.removeItem("vlsi_simulation_logs");
+      localStorage.removeItem("vlsi_sim_analysis");
+    } catch {}
   },
 }));

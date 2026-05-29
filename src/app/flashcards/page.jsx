@@ -148,7 +148,7 @@ export default function FlashcardsPage() {
         topic.description,
         cardCount,
       );
-      if (!result.success || result.flashcards.length === 0) {
+      if (!result.success || !result.flashcards || result.flashcards.length === 0) {
         setError(result.error || "Failed to generate flashcards.");
         return;
       }

@@ -271,3 +271,123 @@ test.describe("Settings — AI Provider", () => {
     expect(bodyText.toLowerCase()).not.toContain("anthropic");
   });
 });
+
+// ─── Terminal Panel Tests ─────────────────────────────────────────────────────
+
+test.describe("Terminal Panel", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockElectronAPI(page);
+    await seedSettings(page);
+    await seedCodingProblem(page);
+  });
+
+  test("terminal panel is visible on coding page", async ({ page }) => {
+    await goto(page, "/coding");
+    await expect(page.getByTestId("terminal-panel")).toBeVisible();
+  });
+
+  test("terminal shows placeholder when no logs", async ({ page }) => {
+    await goto(page, "/coding");
+    await expect(page.getByText("Run a simulation to see output here")).toBeVisible();
+  });
+
+  test("terminal displays simulation logs from localStorage", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("vlsi_simulation_logs", "# count = 0\n# count = 1\n# count = 2\nSimulation completed");
+    });
+    await goto(page, "/coding");
+    await expect(page.getByTestId("terminal-content")).toContainText("count = 0");
+    await expect(page.getByTestId("terminal-content")).toContainText("Simulation completed");
+  });
+
+  test("terminal has compile/simulation tabs", async ({ page }) => {
+    await goto(page, "/coding");
+    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Compile" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Simulation" })).toBeVisible();
+  });
+
+  test("terminal collapses on minimize button click", async ({ page }) => {
+    await goto(page, "/coding");
+    const panel = page.getByTestId("terminal-panel");
+    await expect(panel).toBeVisible();
+    const minimizeBtn = panel.locator("button").last();
+    await minimizeBtn.click();
+    await expect(page.getByTestId("terminal-content")).not.toBeVisible();
+  });
+});
+
+// ─── AI Analyzer Validation Tests ─────────────────────────────────────────────
+
+test.describe("AI Analyzer — Module Validation", () => {
+  test("counter challenge produces counter-only analysis", async ({ page }) => {
+    await mockElectronAPI(page);
+    await seedSettings(page);
+    await seedCodingProblem(page);
+
+    const analysis = {
+      success: true,
+      diagnostic: "## Simulation Diagnostic\n\n**The Symptom:** Counter not resetting properly.\n\n### Root Cause Analysis\nThe counter_4bit module has a reset timing issue.\n\n### How to Fix\nAdd proper synchronous reset in the counter module.",
+      hallucinatedModules: [],
+    };
+    await page.addInitScript((a) => {
+      localStorage.setItem("vlsi_sim_analysis", JSON.stringify(a));
+    }, analysis);
+
+    await goto(page, "/coding");
+
+    const bodyText = await page.locator("body").innerText();
+    expect(bodyText.toLowerCase()).toContain("counter");
+    expect(bodyText.toLowerCase()).not.toContain("decoder");
+    expect(bodyText.toLowerCase()).not.toContain("fifo");
+    expect(bodyText.toLowerCase()).not.toContain("cdc");
+  });
+
+  test("PASS badge appears when simulation passes", async ({ page }) => {
+    await mockElectronAPI(page);
+    await seedSettings(page);
+    await seedCodingProblem(page);
+
+    await page.addInitScript(() => {
+      localStorage.setItem("vlsi_sim_analysis", JSON.stringify({
+        success: true,
+        diagnostic: "Simulation completed. All tests passed. PASS.",
+      }));
+    });
+
+    await goto(page, "/coding");
+    await expect(page.getByTestId("pass-fail-badge")).toContainText("PASS");
+  });
+
+  test("FAIL badge appears when simulation fails", async ({ page }) => {
+    await mockElectronAPI(page);
+    await seedSettings(page);
+    await seedCodingProblem(page);
+
+    await page.addInitScript(() => {
+      localStorage.setItem("vlsi_sim_analysis", JSON.stringify({
+        success: true,
+        diagnostic: "Simulation failed at t=100ns. FAIL.",
+      }));
+    });
+
+    await goto(page, "/coding");
+    await expect(page.getByTestId("pass-fail-badge")).toContainText("FAIL");
+  });
+
+  test("waveform status shown when analysis succeeds", async ({ page }) => {
+    await mockElectronAPI(page);
+    await seedSettings(page);
+    await seedCodingProblem(page);
+
+    await page.addInitScript(() => {
+      localStorage.setItem("vlsi_sim_analysis", JSON.stringify({
+        success: true,
+        diagnostic: "Simulation completed successfully.",
+      }));
+    });
+
+    await goto(page, "/coding");
+    await expect(page.getByTestId("waveform-status")).toBeVisible();
+  });
+});

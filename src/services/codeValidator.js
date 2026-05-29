@@ -34,17 +34,20 @@ export async function validateCode({ userCode, problem, settings = {} }) {
   let fallbackMode = false;
 
   if (simConfig.available) {
-    if (simConfig.simulator === "vivado" && track === "design") {
-      // RTL Design → Vivado waveform validation
-      const result = await runVivadoValidation(userCode, problem, simConfig.path);
-      waveformResult = result.waveform;
-      simulatorUsed = "vivado";
-    } else if (simConfig.simulator === "questa" && track === "verification") {
-      // Verification → QuestaSim transcript validation
-      const result = await runQuestaValidation(userCode, problem, simConfig.path);
-      transcriptResult = result.transcript;
-      simulatorUsed = "questa";
-    } else {
+    try {
+      if (simConfig.simulator === "vivado" && track === "design") {
+        const result = await runVivadoValidation(userCode, problem, simConfig.path);
+        waveformResult = result.waveform;
+        simulatorUsed = "vivado";
+      } else if (simConfig.simulator === "questa" && track === "verification") {
+        const result = await runQuestaValidation(userCode, problem, simConfig.path);
+        transcriptResult = result.transcript;
+        simulatorUsed = "questa";
+      } else {
+        fallbackMode = true;
+      }
+    } catch (e) {
+      console.error("[CodeValidator] Simulation failed:", e);
       fallbackMode = true;
     }
   } else {
@@ -111,6 +114,11 @@ export async function validateCode({ userCode, problem, settings = {} }) {
  */
 async function runVivadoValidation(userCode, problem, vivadoPath) {
   const ports = extractPorts(userCode);
+  if (ports.moduleName === "unknown") {
+    return {
+      waveform: { passed: false, score: 0, errors: ["Could not parse module name from code. Ensure your code has a valid 'module <name>' declaration."] },
+    };
+  }
   const tbCode = generateTestbench({
     moduleName: ports.moduleName,
     ports,
