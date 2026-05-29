@@ -411,11 +411,11 @@ export default function CodingPage() {
       if (t) setTopicId(t);
     }
     // Detect local simulators
-    import("@/services/questaService").then(({ checkQuestasimStatus }) => {
-      checkQuestasimStatus().then((s) => setQuestaAvailable(!!s?.available));
+    const settings = getSettings();
+    import("@/services/questaService").then(({ detectQuesta }) => {
+      detectQuesta(settings.questasim_path).then((s) => setQuestaAvailable(!!s?.available));
     });
     import("@/services/vivadoService").then(({ detectVivado }) => {
-      const settings = getSettings();
       detectVivado(settings.vivado_path).then((v) => setVivadoAvailable(!!v?.available));
     });
   }, []);
@@ -461,6 +461,20 @@ export default function CodingPage() {
     const hasModule = /module\s+\w+/.test(userCode);
     const hasEndmodule = /endmodule/.test(userCode);
     const syntaxOk = hasModule && hasEndmodule && (/always\s+/.test(userCode) || /assign\s+/.test(userCode));
+
+    const runLog = [
+      "[Check]",
+      `Analyzing: ${problem.title || "design"}`,
+      "",
+      hasModule ? "  ✓ module declaration found" : "  ✗ missing module declaration",
+      hasEndmodule ? "  ✓ endmodule found" : "  ✗ missing endmodule",
+      syntaxOk ? "  ✓ behavioral block found" : "  ✗ no always/assign block",
+      "",
+      syntaxOk ? "PASS — basic syntax OK" : "FAIL — incomplete module structure",
+    ].join("\n");
+
+    setSimOutput(runLog);
+    setSimulationLogs(runLog);
     setEvalResult({
       success: true, passed: syntaxOk, overallScore: syntaxOk ? 75 : 40,
       static: {
@@ -829,25 +843,7 @@ export default function CodingPage() {
             <div className="mt-4">
               <TerminalPanel
                 logs={simOutput}
-                simulationLog={simOutput}
-                passFail={
-                  evalResult?.passed === true
-                    ? "pass"
-                    : evalResult?.passed === false
-                    ? "fail"
-                    : null
-                }
-                waveformStatus={
-                  simAnalysis?.success ? { generated: true } : null
-                }
-              />
-            </div>
-
-            {/* Terminal Panel */}
-            <div className="mt-4">
-              <TerminalPanel
-                logs={simOutput}
-                compileLog={undefined}
+                compileLog={evalResult?.errors?.length ? undefined : undefined}
                 simulationLog={simOutput}
                 passFail={
                   simAnalysis?.success && simAnalysis?.diagnostic?.toLowerCase().includes("pass")
