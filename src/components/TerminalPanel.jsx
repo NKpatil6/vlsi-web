@@ -88,6 +88,7 @@ export default function TerminalPanel({
         )}
 
         <button
+          data-testid="terminal-toggle"
           onClick={() => {
             const next = !expanded;
             setExpanded(next);

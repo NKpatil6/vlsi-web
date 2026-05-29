@@ -174,7 +174,7 @@ test.describe("Coding", () => {
   test("page loads with editor", async ({ page }) => {
     await goto(page, "/coding");
     const bodyText = await page.locator("body").innerText();
-    expect(bodyText).toContain("VLSI Coding");
+    expect(bodyText).toContain("Coding Practice");
   });
 
   test("terminal panel visible", async ({ page }) => {

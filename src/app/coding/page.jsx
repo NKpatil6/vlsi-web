@@ -420,6 +420,16 @@ export default function CodingPage() {
     });
   }, []);
 
+  // Sync local state with store after restoreCodingState() loads from localStorage
+  useEffect(() => {
+    if (codingTask && !problem) {
+      setProblem(codingTask);
+      if (savedCode && !userCode) setUserCode(savedCode);
+      if (savedLogs && !simOutput) setSimOutput(savedLogs);
+      if (savedAnalysis && !simAnalysis) setSimAnalysisLocal(savedAnalysis);
+    }
+  }, [codingTask, savedCode, savedLogs, savedAnalysis]);
+
   useEffect(() => { if (userCode && problem) setEditorCode(userCode); }, [userCode]);
   useEffect(() => { if (topicId) setSelectedTopic(topicId); }, [topicId]);
 

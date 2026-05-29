@@ -255,8 +255,8 @@ test.describe("Settings — AI Provider", () => {
     await seedSettings(page);
     await goto(page, "/settings");
 
-    await expect(page.getByText("Groq (Llama)")).toBeVisible();
-    await expect(page.getByText("Gemini (Google)")).toBeVisible();
+    await expect(page.getByText("Groq (Llama)").first()).toBeVisible();
+    await expect(page.getByText("Gemini (Google)").first()).toBeVisible();
   });
 
   test("Settings About panel shows correct providers", async ({ page }) => {
@@ -311,8 +311,8 @@ test.describe("Terminal Panel", () => {
     await goto(page, "/coding");
     const panel = page.getByTestId("terminal-panel");
     await expect(panel).toBeVisible();
-    const minimizeBtn = panel.locator("button").last();
-    await minimizeBtn.click();
+    const toggleBtn = page.getByTestId("terminal-toggle");
+    await toggleBtn.click();
     await expect(page.getByTestId("terminal-content")).not.toBeVisible();
   });
 });
